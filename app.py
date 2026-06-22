@@ -144,16 +144,15 @@ search_queriesは12〜15個生成してください。以下の3種類を必ず�
     except (json.JSONDecodeError, AttributeError):
         return {"company": "不明", "product": "不明", "summary": raw[:300], "release_date": "", "keywords": [], "search_queries": []}
 
-def search_articles(queries: list, keywords: list) -> list:
+def _search_google(queries: list, keywords: list) -> list:
     api_key = _secret("GOOGLE_API_KEY")
     cx = _secret("GOOGLE_CX")
+    if not api_key or not cx:
+        return []
     seen_urls = set()
     results = []
-
     kw_lower = [k.lower() for k in keywords if len(k) >= 2]
-
     for query in queries:
-        # 1クエリあたり最大30件（10件×3ページ）取得
         for start in [1, 11, 21]:
             try:
                 resp = requests.get(
@@ -162,8 +161,12 @@ def search_articles(queries: list, keywords: list) -> list:
                     timeout=10
                 )
                 if resp.status_code != 200:
+                    if resp.status_code in (400, 403):
+                        raise RuntimeError(f"Google API error: {resp.status_code}")
                     break
                 data = resp.json()
+                if "error" in data:
+                    raise RuntimeError(f"Google API error: {data['error'].get('message')}")
                 items = data.get("items", [])
                 if not items:
                     break
@@ -184,9 +187,46 @@ def search_articles(queries: list, keywords: list) -> list:
                         "query": query,
                         "date": item.get("pagemap", {}).get("metatags", [{}])[0].get("article:published_time", ""),
                     })
+            except RuntimeError:
+                raise
             except Exception:
                 break
     return results
+
+def _search_ddg(queries: list, keywords: list) -> list:
+    from duckduckgo_search import DDGS
+    seen_urls = set()
+    results = []
+    kw_lower = [k.lower() for k in keywords if len(k) >= 2]
+    with DDGS() as ddgs:
+        for query in queries:
+            try:
+                hits = list(ddgs.text(query, max_results=10))
+                for h in hits:
+                    url = h.get("href", "")
+                    if not url or url in seen_urls:
+                        continue
+                    title = h.get("title", "")
+                    snippet = h.get("body", "")
+                    combined = (title + " " + snippet).lower()
+                    if kw_lower and not any(k in combined for k in kw_lower):
+                        continue
+                    seen_urls.add(url)
+                    results.append({"title": title, "url": url, "snippet": snippet, "query": query, "date": ""})
+            except Exception:
+                continue
+    return results
+
+def search_articles(queries: list, keywords: list) -> list:
+    try:
+        results = _search_google(queries, keywords)
+        if results:
+            st.caption("🔍 Google Custom Search で検索しました")
+            return results
+        raise RuntimeError("Google: 結果なし")
+    except Exception as e:
+        st.caption(f"⚠️ Google検索が利用できないためDuckDuckGoで代替検索します（{e}）")
+        return _search_ddg(queries, keywords)
 
 def classify_article(url: str) -> str:
     """ワイヤーサービス / SNS / 除外 / 通常 を判定"""
