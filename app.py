@@ -104,10 +104,11 @@ search_queriesは5〜7個生成してください。
 「ハンディファン」「扇風機」など製品カテゴリ単独のクエリは不要です。
 例：「baramood 発売」「Emutas baramood」「baramood ハンディファン」のように固有名詞を必ず含めてください。
 
-また "brand_keywords" として、このプレスリリースを特定できる固有名詞・ブランド名・モデル名のリストも返してください（日本語・英語両方）。
+また "brand_keywords" として、このプレスリリースを特定できる固有名詞・ブランド名・モデル名のリストも返してください。
+本文中に登場するカタカナ表記（例：「baramood（パラムード）」なら「パラムード」）を必ず含めてください。
 {{
   ...既存のフィールド...,
-  "brand_keywords": ["baramood", "バラムード", "Emutas", "HANIL ELECTRONICS"]
+  "brand_keywords": ["baramood", "パラムード", "Emutas", "HANIL ELECTRONICS"]
 }}"""
 
     message = client.messages.create(
