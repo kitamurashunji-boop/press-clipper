@@ -200,25 +200,17 @@ def _search_ddg(queries: list, keywords: list) -> list:
         from duckduckgo_search import DDGS
     seen_urls = set()
     results = []
-    kw_lower = [k.lower() for k in keywords if len(k) >= 2]
-    errors = []
-    with DDGS() as ddgs:
-        for query in queries:
-            try:
-                hits = list(ddgs.text(query, max_results=10))
-                for h in hits:
-                    url = h.get("href", "")
-                    if not url or url in seen_urls:
-                        continue
-                    title = h.get("title", "")
-                    snippet = h.get("body", "")
-                    seen_urls.add(url)
-                    results.append({"title": title, "url": url, "snippet": snippet, "query": query, "date": ""})
-            except Exception as e:
-                errors.append(str(e))
-                continue
-    if errors:
-        st.warning(f"DuckDuckGo エラー: {errors[0]}")
+    for query in queries:
+        try:
+            hits = DDGS().text(query, max_results=10)
+            for h in hits:
+                url = h.get("href", "")
+                if not url or url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                results.append({"title": h.get("title", ""), "url": url, "snippet": h.get("body", ""), "query": query, "date": ""})
+        except Exception:
+            continue
     return results
 
 def _search_brave(queries: list, keywords: list) -> list:
@@ -484,21 +476,70 @@ def generate_html(info: dict, articles: list, filename: str) -> str:
 
 # --- UI ---
 
-tab1, tab2 = st.tabs(["ファイルをアップロード", "PR TIMESのURLを入力"])
+st.markdown("""
+<style>
+[data-testid="stAppViewContainer"] { background: #0f0f13; }
+[data-testid="stHeader"] { background: transparent; }
+section[data-testid="stSidebar"] { display: none; }
+.block-container { padding: 2rem 2rem 4rem; max-width: 860px; }
+div[data-testid="stTabs"] button {
+    background: transparent !important;
+    color: #888 !important;
+    border: none !important;
+    font-size: 14px !important;
+    padding: 8px 20px !important;
+}
+div[data-testid="stTabs"] button[aria-selected="true"] {
+    color: #fff !important;
+    border-bottom: 2px solid #6366f1 !important;
+}
+div[data-testid="stForm"] { background: transparent; border: none; }
+input[type="text"] {
+    background: #1a1a24 !important;
+    border: 1px solid #2a2a3a !important;
+    border-radius: 10px !important;
+    color: #fff !important;
+    font-size: 15px !important;
+    padding: 14px 16px !important;
+}
+input[type="text"]:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important; }
+div[data-testid="stFileUploader"] {
+    background: #1a1a24 !important;
+    border: 1px dashed #2a2a3a !important;
+    border-radius: 10px !important;
+}
+div[data-testid="stMetricValue"] { color: #fff !important; font-size: 2rem !important; }
+div[data-testid="stMetricLabel"] { color: #888 !important; }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div style="text-align:center;padding:3rem 0 2rem;">
+  <div style="font-size:13px;letter-spacing:3px;color:#6366f1;font-weight:600;margin-bottom:12px;text-transform:uppercase;">Press Intelligence</div>
+  <h1 style="font-size:2.6rem;font-weight:700;color:#fff;margin:0 0 12px;letter-spacing:-1px;">クリッピングツール</h1>
+  <p style="color:#666;font-size:15px;margin:0;">プレスリリースから掲載記事を自動収集・分類</p>
+</div>
+""", unsafe_allow_html=True)
+
+tab1, tab2 = st.tabs(["📎  ファイルをアップロード", "🔗  PR TIMESのURLを入力"])
 
 with tab1:
     uploaded = st.file_uploader(
-        "プレスリリースファイルをアップロード",
+        "プレスリリースファイルをドラッグ＆ドロップ",
         type=["txt", "pdf", "docx"],
-        help="対応形式：テキスト(.txt)、PDF(.pdf)、Word(.docx)"
+        label_visibility="collapsed",
     )
 
+prtimes_url = ""
+url_submitted = False
 with tab2:
-    prtimes_url = st.text_input(
-        "PR TIMESのURL",
-        placeholder="https://prtimes.jp/main/html/rd/p/...",
-        help="PR TIMESのプレスリリースページのURLを貼り付けてください"
-    )
+    with st.form("url_form"):
+        prtimes_url = st.text_input(
+            "URL",
+            placeholder="https://prtimes.jp/main/html/rd/p/...",
+            label_visibility="collapsed",
+        )
+        url_submitted = st.form_submit_button("　→　解析・検索を開始", use_container_width=True, type="primary")
 
 source_name = None
 if uploaded:
@@ -506,8 +547,12 @@ if uploaded:
 elif prtimes_url and prtimes_url.startswith("http"):
     source_name = prtimes_url
 
+run_now = url_submitted or (uploaded is not None)
+
 if source_name:
-    if st.button("解析・検索を開始", type="primary", use_container_width=True):
+    if uploaded and not url_submitted:
+        run_now = st.button("　→　解析・検索を開始", type="primary", use_container_width=True)
+    if run_now:
 
         progress = st.progress(0, text="処理を開始しています...")
         log = st.empty()
@@ -563,16 +608,31 @@ if source_name:
         wire      = [a for a in articles if a.get("article_class") == "ワイヤーサービス"]
         sns       = [a for a in articles if a.get("article_class") == "SNS"]
 
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("1次記事", len(primary))
-        col2.metric("2次記事", len(secondary))
-        col3.metric("ワイヤー", len(wire))
-        col4.metric("SNS", len(sns))
+        st.markdown(f"""
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:24px 0;">
+  <div style="background:#1a1a24;border:1px solid #2a2a3a;border-radius:12px;padding:20px;text-align:center;">
+    <div style="font-size:2.2rem;font-weight:700;color:#f59e0b;">{len(primary)}</div>
+    <div style="font-size:12px;color:#888;margin-top:4px;letter-spacing:1px;">1次記事</div>
+  </div>
+  <div style="background:#1a1a24;border:1px solid #2a2a3a;border-radius:12px;padding:20px;text-align:center;">
+    <div style="font-size:2.2rem;font-weight:700;color:#10b981;">{len(secondary)}</div>
+    <div style="font-size:12px;color:#888;margin-top:4px;letter-spacing:1px;">2次記事</div>
+  </div>
+  <div style="background:#1a1a24;border:1px solid #2a2a3a;border-radius:12px;padding:20px;text-align:center;">
+    <div style="font-size:2.2rem;font-weight:700;color:#6366f1;">{len(wire)}</div>
+    <div style="font-size:12px;color:#888;margin-top:4px;letter-spacing:1px;">ワイヤー</div>
+  </div>
+  <div style="background:#1a1a24;border:1px solid #2a2a3a;border-radius:12px;padding:20px;text-align:center;">
+    <div style="font-size:2.2rem;font-weight:700;color:#a78bfa;">{len(sns)}</div>
+    <div style="font-size:12px;color:#888;margin-top:4px;letter-spacing:1px;">SNS</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
         html = generate_html(info, articles, source_name)
         stem = Path(uploaded.name).stem if uploaded else "クリッピング"
         st.download_button(
-            label="HTMLレポートをダウンロード",
+            label="📥  HTMLレポートをダウンロード",
             data=html.encode("utf-8"),
             file_name=f"{stem}_クリッピングレポート.html",
             mime="text/html",
