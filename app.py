@@ -478,48 +478,176 @@ def generate_html(info: dict, articles: list, filename: str) -> str:
 
 st.markdown("""
 <style>
-[data-testid="stAppViewContainer"] { background: #0f0f13; }
-[data-testid="stHeader"] { background: transparent; }
-section[data-testid="stSidebar"] { display: none; }
-.block-container { padding: 2rem 2rem 4rem; max-width: 860px; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+* { font-family: 'Inter', -apple-system, sans-serif !important; }
+[data-testid="stAppViewContainer"] { background: #0a0a0e !important; }
+[data-testid="stHeader"] { background: transparent !important; display: none; }
+section[data-testid="stSidebar"] { display: none !important; }
+.block-container { padding: 0 !important; max-width: 100% !important; }
+footer { display: none !important; }
+[data-testid="stStatusWidget"] { display: none !important; }
+
+/* Nav bar */
+.pc-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; height: 56px;
+    background: #111116; border-bottom: 1px solid #1e1e28;
+    position: sticky; top: 0; z-index: 100;
+}
+.pc-logo { display: flex; align-items: center; gap: 10px; }
+.pc-logo-mark {
+    width: 28px; height: 28px; background: #c8f135; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 14px; color: #0a0a0e;
+}
+.pc-logo-text { font-weight: 700; font-size: 15px; color: #fff; letter-spacing: -0.3px; }
+.pc-nav-tabs { display: flex; gap: 4px; }
+.pc-nav-tab {
+    padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 500;
+    color: #666; cursor: pointer; transition: all 0.15s;
+}
+.pc-nav-tab.active { background: #c8f135; color: #0a0a0e; }
+
+/* Main */
+.pc-main { padding: 32px; max-width: 1100px; margin: 0 auto; }
+
+/* Stats row */
+.pc-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 24px; }
+.pc-stat {
+    background: #111116; border: 1px solid #1e1e28; border-radius: 16px;
+    padding: 20px 24px;
+}
+.pc-stat-val { font-size: 2rem; font-weight: 700; color: #fff; line-height: 1; margin-bottom: 6px; }
+.pc-stat-lbl { font-size: 12px; color: #555; font-weight: 500; letter-spacing: 0.5px; }
+.pc-stat-accent { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+
+/* Input card */
+.pc-card {
+    background: #111116; border: 1px solid #1e1e28; border-radius: 16px; padding: 28px;
+    margin-bottom: 20px;
+}
+.pc-card-title { font-size: 18px; font-weight: 600; color: #fff; margin-bottom: 20px; }
+.pc-card-sub { font-size: 13px; color: #555; margin-bottom: 6px; font-weight: 500; letter-spacing: 0.3px; }
+
+/* Tabs */
+div[data-testid="stTabs"] { border: none !important; }
+div[data-testid="stTabs"] > div:first-child {
+    background: #0d0d12; border: 1px solid #1e1e28; border-radius: 10px;
+    padding: 4px; gap: 0 !important;
+}
 div[data-testid="stTabs"] button {
-    background: transparent !important;
-    color: #888 !important;
-    border: none !important;
-    font-size: 14px !important;
-    padding: 8px 20px !important;
+    background: transparent !important; color: #555 !important;
+    border: none !important; border-radius: 7px !important;
+    font-size: 13px !important; font-weight: 500 !important;
+    padding: 8px 18px !important; transition: all 0.15s !important;
 }
 div[data-testid="stTabs"] button[aria-selected="true"] {
-    color: #fff !important;
-    border-bottom: 2px solid #6366f1 !important;
+    background: #1e1e28 !important; color: #fff !important;
 }
-div[data-testid="stForm"] { background: transparent; border: none; }
-input[type="text"] {
-    background: #1a1a24 !important;
-    border: 1px solid #2a2a3a !important;
+div[data-testid="stTabContent"] { padding-top: 20px !important; }
+
+/* Form & inputs */
+div[data-testid="stForm"] { background: transparent !important; border: none !important; padding: 0 !important; }
+input[type="text"], input[type="url"] {
+    background: #0d0d12 !important; border: 1px solid #1e1e28 !important;
+    border-radius: 10px !important; color: #fff !important;
+    font-size: 14px !important; padding: 12px 16px !important;
+    transition: border-color 0.15s !important;
+}
+input[type="text"]:focus, input[type="url"]:focus {
+    border-color: #c8f135 !important;
+    box-shadow: 0 0 0 3px rgba(200,241,53,0.08) !important;
+}
+
+/* File uploader */
+div[data-testid="stFileUploader"] > div {
+    background: #0d0d12 !important; border: 1px dashed #2a2a38 !important;
     border-radius: 10px !important;
-    color: #fff !important;
-    font-size: 15px !important;
-    padding: 14px 16px !important;
 }
-input[type="text"]:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important; }
-div[data-testid="stFileUploader"] {
-    background: #1a1a24 !important;
-    border: 1px dashed #2a2a3a !important;
-    border-radius: 10px !important;
+
+/* Primary button (Streamlit) */
+div[data-testid="stFormSubmitButton"] > button,
+div[data-testid="stButton"] > button[kind="primary"] {
+    background: #c8f135 !important; color: #0a0a0e !important;
+    border: none !important; border-radius: 10px !important;
+    font-weight: 600 !important; font-size: 14px !important;
+    padding: 12px 24px !important; transition: opacity 0.15s !important;
 }
-div[data-testid="stMetricValue"] { color: #fff !important; font-size: 2rem !important; }
-div[data-testid="stMetricLabel"] { color: #888 !important; }
+div[data-testid="stFormSubmitButton"] > button:hover,
+div[data-testid="stButton"] > button[kind="primary"]:hover { opacity: 0.88 !important; }
+
+/* Progress bar */
+div[data-testid="stProgress"] > div { background: #1e1e28 !important; border-radius: 4px; }
+div[data-testid="stProgress"] > div > div { background: #c8f135 !important; border-radius: 4px; }
+
+/* Article table */
+.pc-table { width: 100%; border-collapse: collapse; }
+.pc-table th {
+    background: #0d0d12; color: #555; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.8px; text-transform: uppercase; padding: 10px 16px;
+    border-bottom: 1px solid #1e1e28; text-align: left;
+}
+.pc-table td { padding: 14px 16px; border-bottom: 1px solid #141418; vertical-align: middle; }
+.pc-table tr:hover td { background: #13131a; }
+.pc-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+}
+.pc-badge-primary   { background: rgba(200,241,53,0.15); color: #c8f135; }
+.pc-badge-secondary { background: rgba(52,211,153,0.15); color: #34d399; }
+.pc-badge-wire      { background: rgba(99,102,241,0.15); color: #818cf8; }
+.pc-badge-sns       { background: rgba(251,146,60,0.15); color: #fb923c; }
+.pc-article-title { color: #e2e2f0; font-size: 13px; font-weight: 500; text-decoration: none; }
+.pc-article-title:hover { color: #c8f135; }
+.pc-article-snippet { color: #555; font-size: 12px; margin-top: 3px; }
+.pc-media-tag {
+    display: inline-block; background: #1a1a24; color: #888;
+    border-radius: 6px; font-size: 11px; padding: 2px 8px; font-weight: 500;
+}
+
+/* Download btn */
+div[data-testid="stDownloadButton"] > button {
+    background: #c8f135 !important; color: #0a0a0e !important;
+    border: none !important; border-radius: 10px !important;
+    font-weight: 600 !important; font-size: 14px !important;
+    width: 100% !important;
+}
+
+/* Caption / info */
+div[data-testid="stCaptionContainer"], .stCaption { color: #555 !important; font-size: 12px !important; }
 </style>
 """, unsafe_allow_html=True)
 
+# ── Nav ──────────────────────────────────────────────────────────────────────
 st.markdown("""
-<div style="text-align:center;padding:3rem 0 2rem;">
-  <div style="font-size:13px;letter-spacing:3px;color:#6366f1;font-weight:600;margin-bottom:12px;text-transform:uppercase;">Press Intelligence</div>
-  <h1 style="font-size:2.6rem;font-weight:700;color:#fff;margin:0 0 12px;letter-spacing:-1px;">クリッピングツール</h1>
-  <p style="color:#666;font-size:15px;margin:0;">プレスリリースから掲載記事を自動収集・分類</p>
+<div class="pc-nav">
+  <div class="pc-logo">
+    <div class="pc-logo-mark">P</div>
+    <span class="pc-logo-text">Press Clipper</span>
+  </div>
+  <div class="pc-nav-tabs">
+    <div class="pc-nav-tab active">クリッピング</div>
+    <div class="pc-nav-tab">レポート</div>
+    <div class="pc-nav-tab">設定</div>
+  </div>
+  <div style="width:80px;"></div>
+</div>
+<div class="pc-main">
+""", unsafe_allow_html=True)
+
+# ── Page title ────────────────────────────────────────────────────────────────
+st.markdown("""
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;">
+  <div>
+    <div style="font-size:11px;color:#555;letter-spacing:1.5px;font-weight:600;margin-bottom:6px;text-transform:uppercase;">Press Intelligence</div>
+    <h1 style="font-size:28px;font-weight:700;color:#fff;margin:0;letter-spacing:-0.5px;">クリッピング</h1>
+  </div>
 </div>
 """, unsafe_allow_html=True)
+
+# ── Input card ────────────────────────────────────────────────────────────────
+st.markdown('<div class="pc-card"><div class="pc-card-title">プレスリリースを入力</div>', unsafe_allow_html=True)
 
 tab1, tab2 = st.tabs(["📎  ファイルをアップロード", "🔗  PR TIMESのURLを入力"])
 
@@ -539,7 +667,9 @@ with tab2:
             placeholder="https://prtimes.jp/main/html/rd/p/...",
             label_visibility="collapsed",
         )
-        url_submitted = st.form_submit_button("　→　解析・検索を開始", use_container_width=True, type="primary")
+        url_submitted = st.form_submit_button("解析・検索を開始 →", use_container_width=True, type="primary")
+
+st.markdown('</div>', unsafe_allow_html=True)
 
 source_name = None
 if uploaded:
@@ -551,7 +681,7 @@ run_now = url_submitted or (uploaded is not None)
 
 if source_name:
     if uploaded and not url_submitted:
-        run_now = st.button("　→　解析・検索を開始", type="primary", use_container_width=True)
+        run_now = st.button("解析・検索を開始 →", type="primary", use_container_width=True)
     if run_now:
 
         progress = st.progress(0, text="処理を開始しています...")
@@ -608,43 +738,83 @@ if source_name:
         wire      = [a for a in articles if a.get("article_class") == "ワイヤーサービス"]
         sns       = [a for a in articles if a.get("article_class") == "SNS"]
 
+        # ── Stats ──────────────────────────────────────────────────────────
         st.markdown(f"""
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:24px 0;">
-  <div style="background:#1a1a24;border:1px solid #2a2a3a;border-radius:12px;padding:20px;text-align:center;">
-    <div style="font-size:2.2rem;font-weight:700;color:#f59e0b;">{len(primary)}</div>
-    <div style="font-size:12px;color:#888;margin-top:4px;letter-spacing:1px;">1次記事</div>
+<div class="pc-stats">
+  <div class="pc-stat">
+    <div class="pc-stat-val">{len(primary)}</div>
+    <div class="pc-stat-lbl"><span class="pc-stat-accent" style="background:#c8f135;"></span>1次記事</div>
   </div>
-  <div style="background:#1a1a24;border:1px solid #2a2a3a;border-radius:12px;padding:20px;text-align:center;">
-    <div style="font-size:2.2rem;font-weight:700;color:#10b981;">{len(secondary)}</div>
-    <div style="font-size:12px;color:#888;margin-top:4px;letter-spacing:1px;">2次記事</div>
+  <div class="pc-stat">
+    <div class="pc-stat-val">{len(secondary)}</div>
+    <div class="pc-stat-lbl"><span class="pc-stat-accent" style="background:#34d399;"></span>2次記事</div>
   </div>
-  <div style="background:#1a1a24;border:1px solid #2a2a3a;border-radius:12px;padding:20px;text-align:center;">
-    <div style="font-size:2.2rem;font-weight:700;color:#6366f1;">{len(wire)}</div>
-    <div style="font-size:12px;color:#888;margin-top:4px;letter-spacing:1px;">ワイヤー</div>
+  <div class="pc-stat">
+    <div class="pc-stat-val">{len(wire)}</div>
+    <div class="pc-stat-lbl"><span class="pc-stat-accent" style="background:#818cf8;"></span>ワイヤー</div>
   </div>
-  <div style="background:#1a1a24;border:1px solid #2a2a3a;border-radius:12px;padding:20px;text-align:center;">
-    <div style="font-size:2.2rem;font-weight:700;color:#a78bfa;">{len(sns)}</div>
-    <div style="font-size:12px;color:#888;margin-top:4px;letter-spacing:1px;">SNS</div>
+  <div class="pc-stat">
+    <div class="pc-stat-val">{len(sns)}</div>
+    <div class="pc-stat-lbl"><span class="pc-stat-accent" style="background:#fb923c;"></span>SNS</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
+        # ── Download ───────────────────────────────────────────────────────
         html = generate_html(info, articles, source_name)
         stem = Path(uploaded.name).stem if uploaded else "クリッピング"
         st.download_button(
-            label="📥  HTMLレポートをダウンロード",
+            label="HTMLレポートをダウンロード",
             data=html.encode("utf-8"),
             file_name=f"{stem}_クリッピングレポート.html",
             mime="text/html",
-            type="primary",
             use_container_width=True,
         )
 
-        with st.expander("記事一覧プレビュー"):
-            for a in articles:
-                cls = a.get("article_class", "")
-                color_map = {"1次記事": "orange", "2次記事": "green", "ワイヤーサービス": "blue", "SNS": "violet"}
-                color = color_map.get(cls, "gray")
-                st.markdown(
-                    f":{color}[{cls}]　**[{a['title']}]({a['url']})**　`{a.get('media','')}`  \n{a.get('snippet','')[:100]}..."
-                )
+        # ── Article table ──────────────────────────────────────────────────
+        badge_cls = {
+            "1次記事":      ("pc-badge-primary",   "1次"),
+            "2次記事":      ("pc-badge-secondary",  "2次"),
+            "ワイヤーサービス": ("pc-badge-wire",   "Wire"),
+            "SNS":          ("pc-badge-sns",        "SNS"),
+        }
+        all_display = primary + secondary + wire + sns
+        rows_html = ""
+        for a in all_display:
+            cls  = a.get("article_class", "")
+            bc, bl = badge_cls.get(cls, ("", cls))
+            title   = a.get("title", "")[:80]
+            url     = a.get("url", "")
+            snippet = a.get("snippet", "")[:90]
+            media   = a.get("media", "")
+            date    = (a.get("date", "") or "")[:10] or "—"
+            rows_html += f"""
+<tr>
+  <td><span class="pc-badge {bc}">{bl}</span></td>
+  <td style="color:#555;font-size:12px;">{date}</td>
+  <td>
+    <a class="pc-article-title" href="{url}" target="_blank">{title}</a>
+    <div class="pc-article-snippet">{snippet}</div>
+  </td>
+  <td><span class="pc-media-tag">{media}</span></td>
+</tr>"""
+
+        st.markdown(f"""
+<div class="pc-card" style="margin-top:20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <div class="pc-card-title" style="margin:0;">掲載記事一覧</div>
+    <div style="font-size:12px;color:#555;">{len(all_display)} 件</div>
+  </div>
+  <table class="pc-table">
+    <thead><tr>
+      <th style="width:70px;">種別</th>
+      <th style="width:90px;">掲載日</th>
+      <th>記事タイトル</th>
+      <th style="width:130px;">媒体名</th>
+    </tr></thead>
+    <tbody>{rows_html}</tbody>
+  </table>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
