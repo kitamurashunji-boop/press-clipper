@@ -3,3 +3,5 @@ anthropic
 duckduckgo-search
 pypdf
 python-docx
+requests
+beautifulsoup4

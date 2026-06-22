@@ -3,9 +3,11 @@ import anthropic
 import json
 import re
 import os
+import requests
 from pathlib import Path
 from datetime import datetime
 from duckduckgo_search import DDGS
+from bs4 import BeautifulSoup
 
 # --- ページ設定 ---
 st.set_page_config(
@@ -15,7 +17,22 @@ st.set_page_config(
 )
 
 st.title("📋 プレスリリース クリッピングツール")
-st.caption("プレスリリースをアップロードすると、Web上の関連記事を自動で収集します")
+st.caption("プレスリリースをアップロード、またはPR TIMESのURLを入力すると、Web上の関連記事を自動で収集します")
+
+# --- URL からテキスト取得 ---
+
+def fetch_prtimes_text(url: str) -> str:
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    resp = requests.get(url, headers=headers, timeout=15)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    for sel in ["div.articleBody", "div.press-release-detail", "article", "div#main", "div.content"]:
+        el = soup.select_one(sel)
+        if el:
+            return el.get_text(separator="\n", strip=True)
+
+    return soup.get_text(separator="\n", strip=True)[:8000]
 
 # --- ファイル読み込み ---
 
@@ -234,20 +251,45 @@ def generate_html(info: dict, articles: list, filename: str) -> str:
 
 # --- UI ---
 
-uploaded = st.file_uploader(
-    "プレスリリースファイルをアップロード",
-    type=["txt", "pdf", "docx"],
-    help="対応形式：テキスト(.txt)、PDF(.pdf)、Word(.docx)"
-)
+tab1, tab2 = st.tabs(["ファイルをアップロード", "PR TIMESのURLを入力"])
+
+with tab1:
+    uploaded = st.file_uploader(
+        "プレスリリースファイルをアップロード",
+        type=["txt", "pdf", "docx"],
+        help="対応形式：テキスト(.txt)、PDF(.pdf)、Word(.docx)"
+    )
+
+with tab2:
+    prtimes_url = st.text_input(
+        "PR TIMESのURL",
+        placeholder="https://prtimes.jp/main/html/rd/p/...",
+        help="PR TIMESのプレスリリースページのURLを貼り付けてください"
+    )
+
+# 入力ソースを判定
+source_name = None
 
 if uploaded:
-    st.info(f"ファイル受信: {uploaded.name}")
+    source_name = uploaded.name
+elif prtimes_url and prtimes_url.startswith("http"):
+    source_name = prtimes_url
+
+if source_name:
     if st.button("解析・検索を開始", type="primary", use_container_width=True):
 
         with st.status("処理中...", expanded=True) as status:
 
             st.write("ファイルを読み込んでいます...")
-            text = read_uploaded_file(uploaded)
+            if uploaded:
+                text = read_uploaded_file(uploaded)
+            else:
+                st.write("PR TIMESページを取得中...")
+                try:
+                    text = fetch_prtimes_text(prtimes_url)
+                except Exception as e:
+                    st.error(f"URLの取得に失敗しました: {e}")
+                    st.stop()
             if not text:
                 st.stop()
 
@@ -265,7 +307,6 @@ if uploaded:
 
             status.update(label="完了！", state="complete")
 
-        # サマリー表示
         high = [a for a in articles if a["relevance"] == "高"]
         mid  = [a for a in articles if a["relevance"] == "中"]
 
@@ -274,9 +315,8 @@ if uploaded:
         col2.metric("関連あり", len(mid))
         col3.metric("検索件数合計", len(articles))
 
-        # HTMLレポート生成・ダウンロード
-        html = generate_html(info, articles, uploaded.name)
-        stem = Path(uploaded.name).stem
+        html = generate_html(info, articles, source_name)
+        stem = Path(uploaded.name).stem if uploaded else "クリッピング"
         st.download_button(
             label="HTMLレポートをダウンロード",
             data=html.encode("utf-8"),
@@ -286,7 +326,6 @@ if uploaded:
             use_container_width=True,
         )
 
-        # プレビュー
         with st.expander("記事一覧プレビュー"):
             for a in articles:
                 rel_color = {"高": "green", "中": "orange", "低": "red"}.get(a["relevance"], "gray")
