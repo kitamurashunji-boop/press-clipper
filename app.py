@@ -146,22 +146,39 @@ def classify_article(url: str) -> str:
         return "除外"
     return "通常"
 
+def get_domain(url: str) -> str:
+    return re.sub(r'https?://(?:www\.)?([^/]+).*', r'\1', url)
+
 def score_articles(articles: list, summary: str) -> list:
     client = get_client()
 
-    # 除外対象は事前にフィルタ
+    # Step1: 全記事にarticle_typeを付与
     for a in articles:
         a["article_type"] = classify_article(a["url"])
+        a["media"] = get_domain(a["url"])
 
-    target = [a for a in articles if a["article_type"] != "除外"]
+    # Step2: ワイヤー・SNSは即分類（Claudeに送らない）
+    for a in articles:
+        if a["article_type"] == "ワイヤー":
+            a["article_class"] = "ワイヤーサービス"
+            a["reason"] = "ワイヤーサービス経由の配信"
+        elif a["article_type"] == "SNS":
+            a["article_class"] = "SNS"
+            a["reason"] = "SNS投稿"
+        elif a["article_type"] == "除外":
+            a["article_class"] = "除外"
+            a["reason"] = "ブログ・口コミ等のため除外"
+
+    # Step3: 通常記事のみClaudeで1次/2次/無関係を判定（最大30件）
+    target = [a for a in articles if a["article_type"] == "通常"][:30]
     if not target:
         return articles
 
     article_list = "\n".join(
-        f"{i+1}. タイトル: {a['title']}\n   URL: {a['url']}\n   スニペット: {a['snippet'][:200]}"
+        f"{i+1}. タイトル: {a['title']}\n   URL: {a['url']}\n   スニペット: {a.get('snippet','')[:150]}"
         for i, a in enumerate(target)
     )
-    prompt = f"""以下のプレスリリース概要と、Web検索で見つかった記事リストを照合してください。
+    prompt = f"""以下のプレスリリース概要と記事リストを照合してください。
 
 プレスリリース概要:
 {summary}
@@ -169,24 +186,24 @@ def score_articles(articles: list, summary: str) -> list:
 記事リスト:
 {article_list}
 
-各記事について判定し、以下のJSON配列で返してください（マークダウン不要、JSONのみ）:
+各記事を判定し、JSON配列のみ返してください（マークダウン不要）:
 [
   {{
     "index": 1,
     "article_class": "1次記事" または "2次記事" または "無関係",
-    "media": "メディア名（サイト名）",
-    "reason": "判定理由（1文）"
+    "media": "メディア名（日本語サイト名）",
+    "reason": "理由（20字以内）"
   }}
 ]
 
 判定基準:
-- 1次記事: そのメディアが独自に取材・執筆した記事
-- 2次記事: プレスリリースやワイヤーサービスを転載した記事
-- 無関係: このプレスリリースと関係のない記事"""
+- 1次記事: 独自取材・執筆した記事
+- 2次記事: プレスリリースの転載記事
+- 無関係: このプレスリリースと無関係"""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=2048,
+        max_tokens=3000,
         messages=[{"role": "user", "content": prompt}]
     )
     raw = message.content[0].text.strip()
@@ -199,20 +216,16 @@ def score_articles(articles: list, summary: str) -> list:
     score_map = {s["index"]: s for s in scores if isinstance(s, dict)}
     for i, article in enumerate(target):
         s = score_map.get(i + 1, {})
-        article["article_class"] = s.get("article_class", "不明")
-        article["media"] = s.get("media", re.sub(r'https?://(?:www\.)?([^/]+).*', r'\1', article["url"]))
+        article["article_class"] = s.get("article_class", "無関係")
+        if s.get("media"):
+            article["media"] = s["media"]
         article["reason"] = s.get("reason", "")
 
-    # ワイヤーサービスはクラスを上書き
+    # 未分類（targetに入らなかった記事）は無関係扱い
     for a in articles:
-        if a["article_type"] == "ワイヤー":
-            a.setdefault("article_class", "ワイヤーサービス")
-            a.setdefault("media", re.sub(r'https?://(?:www\.)?([^/]+).*', r'\1', a["url"]))
-            a.setdefault("reason", "ワイヤーサービス経由の配信")
-        elif a["article_type"] == "SNS":
-            a.setdefault("article_class", "SNS")
-            a.setdefault("media", re.sub(r'https?://(?:www\.)?([^/]+).*', r'\1', a["url"]))
-            a.setdefault("reason", "SNS投稿")
+        if "article_class" not in a:
+            a["article_class"] = "無関係"
+            a["reason"] = ""
 
     return articles
 
@@ -257,7 +270,7 @@ def generate_html(info: dict, articles: list, filename: str) -> str:
             </tr>"""
         return out
 
-    all_display = primary + secondary + wire + sns + other
+    all_display = primary + secondary + wire + sns
     keywords_html = "".join(
         f'<span style="background:#e8f0fe;color:#1a73e8;padding:3px 10px;border-radius:12px;font-size:13px;margin:2px;display:inline-block;">{k}</span>'
         for k in info.get("keywords", [])
