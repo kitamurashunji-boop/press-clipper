@@ -381,21 +381,29 @@ let htmlReport = '';
 let reportStem = 'クリッピング';
 
 // ── Page switching ────────────────────────────────────────────────────────
-function showPage(page) {
-  document.getElementById('page-history').style.display = page === 'history' ? 'block' : 'none';
+let clipState = 'input'; // 'input' | 'progress' | 'results'
 
-  // クリッピングページの要素群
-  const clipEls = ['page-header', 'error-box', 'input-card', 'progress-card', 'results'];
-  clipEls.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = page === 'clip' ? (el.dataset.defaultDisplay || '') : 'none';
-  });
+function showPage(page) {
+  const isClip = page === 'clip';
+
+  document.getElementById('page-history').style.display = isClip ? 'none' : 'block';
+  document.getElementById('page-header').style.display  = isClip ? ''      : 'none';
+  document.getElementById('error-box').style.display    = 'none';
+
+  if (isClip) {
+    // 現在のセッション状態を復元
+    document.getElementById('input-card').style.display    = clipState === 'input'    ? '' : 'none';
+    document.getElementById('progress-card').style.display = clipState === 'progress' ? '' : 'none';
+    document.getElementById('results').style.display       = clipState === 'results'  ? '' : 'none';
+  } else {
+    document.getElementById('input-card').style.display    = 'none';
+    document.getElementById('progress-card').style.display = 'none';
+    document.getElementById('results').style.display       = 'none';
+    renderHistory();
+  }
 
   document.querySelectorAll('.nav-pill').forEach(p => p.classList.remove('active'));
-  const idx = page === 'clip' ? 0 : 1;
-  document.querySelectorAll('.nav-pill')[idx].classList.add('active');
-
-  if (page === 'history') renderHistory();
+  document.querySelectorAll('.nav-pill')[isClip ? 0 : 1].classList.add('active');
 }
 
 function switchTab(tab) {
@@ -532,6 +540,7 @@ async function startAnalysis() {
   }
 
   hideError();
+  clipState = 'progress';
   document.getElementById('input-card').style.display = 'none';
   document.getElementById('progress-card').style.display = 'block';
   document.getElementById('results').style.display = 'none';
@@ -566,6 +575,7 @@ async function startAnalysis() {
 
     renderResults(data);
   } catch (e) {
+    clipState = 'input';
     document.getElementById('progress-card').style.display = 'none';
     document.getElementById('input-card').style.display = 'block';
     showError('エラー: ' + e.message);
@@ -573,6 +583,7 @@ async function startAnalysis() {
 }
 
 function renderResults(data) {
+  clipState = 'results';
   document.getElementById('progress-card').style.display = 'none';
   document.getElementById('results').style.display = 'block';
 
