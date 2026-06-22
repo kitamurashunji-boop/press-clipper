@@ -92,8 +92,11 @@ search_queriesは5〜7個、会社名＋製品名・製品名のみ・英語表�
         messages=[{"role": "user", "content": prompt}]
     )
     raw = message.content[0].text.strip()
-    match = re.search(r'\{[\s\S]*\}', raw)
-    return json.loads(match.group() if match else raw)
+    try:
+        match = re.search(r'\{[\s\S]*\}', raw)
+        return json.loads(match.group() if match else raw)
+    except (json.JSONDecodeError, AttributeError):
+        return {"company": "不明", "product": "不明", "summary": raw[:300], "release_date": "", "keywords": [], "search_queries": []}
 
 def search_articles(queries: list) -> list:
     seen_urls = set()
@@ -147,9 +150,12 @@ def score_articles(articles: list, summary: str) -> list:
         messages=[{"role": "user", "content": prompt}]
     )
     raw = message.content[0].text.strip()
-    match = re.search(r'\[[\s\S]*\]', raw)
-    scores = json.loads(match.group() if match else raw)
-    score_map = {s["index"]: s for s in scores}
+    try:
+        match = re.search(r'\[[\s\S]*\]', raw)
+        scores = json.loads(match.group() if match else raw)
+    except (json.JSONDecodeError, AttributeError):
+        scores = []
+    score_map = {s["index"]: s for s in scores if isinstance(s, dict)}
     for i, article in enumerate(articles):
         s = score_map.get(i + 1, {})
         article["relevance"] = s.get("relevance", "低")
