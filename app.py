@@ -8,10 +8,6 @@ from pathlib import Path
 from datetime import datetime
 from bs4 import BeautifulSoup
 
-try:
-    from ddgs import DDGS
-except ImportError:
-    from duckduckgo_search import DDGS
 
 # ワイヤーサービスのドメイン一覧
 WIRE_DOMAINS = [
@@ -133,38 +129,47 @@ search_queriesは12〜15個生成してください。以下の3種類を必ず�
         return {"company": "不明", "product": "不明", "summary": raw[:300], "release_date": "", "keywords": [], "search_queries": []}
 
 def search_articles(queries: list, keywords: list) -> list:
+    api_key = st.secrets.get("GOOGLE_API_KEY", "")
+    cx = st.secrets.get("GOOGLE_CX", "")
     seen_urls = set()
     results = []
 
-    # キーワードを小文字で正規化（フィルタ用）
-    kw_lower = [k.lower() for k in keywords if len(k) >= 3]
+    kw_lower = [k.lower() for k in keywords if len(k) >= 2]
 
-    with DDGS() as ddgs:
-        for query in queries:
+    for query in queries:
+        # 1クエリあたり最大30件（10件×3ページ）取得
+        for start in [1, 11, 21]:
             try:
-                hits = list(ddgs.text(query, max_results=25))
-                for h in hits:
-                    url = h.get("href", "")
+                resp = requests.get(
+                    "https://www.googleapis.com/customsearch/v1",
+                    params={"key": api_key, "cx": cx, "q": query, "num": 10, "start": start, "lr": "lang_ja"},
+                    timeout=10
+                )
+                if resp.status_code != 200:
+                    break
+                data = resp.json()
+                items = data.get("items", [])
+                if not items:
+                    break
+                for item in items:
+                    url = item.get("link", "")
                     if not url or url in seen_urls:
                         continue
-                    title = h.get("title", "")
-                    snippet = h.get("body", "")
+                    title = item.get("title", "")
+                    snippet = item.get("snippet", "")
                     combined = (title + " " + snippet).lower()
-
-                    # キーワードが1つも含まれない記事は除外
                     if kw_lower and not any(k in combined for k in kw_lower):
                         continue
-
                     seen_urls.add(url)
                     results.append({
                         "title": title,
                         "url": url,
                         "snippet": snippet,
                         "query": query,
-                        "date": h.get("published", ""),
+                        "date": item.get("pagemap", {}).get("metatags", [{}])[0].get("article:published_time", ""),
                     })
             except Exception:
-                continue
+                break
     return results
 
 def classify_article(url: str) -> str:
