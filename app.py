@@ -99,10 +99,11 @@ def analyze_press_release(text: str) -> dict:
   ]
 }}
 
-search_queriesは5〜7個生成してください。
+search_queriesは10〜12個生成してください。
 必ず「会社名」「製品名」「ブランド名」を含む具体的なクエリにしてください。
 「ハンディファン」「扇風機」など製品カテゴリ単独のクエリは不要です。
-例：「baramood 発売」「Emutas baramood」「baramood ハンディファン」のように固有名詞を必ず含めてください。
+例：「baramood 発売」「Emutas baramood」「baramood レビュー」「パラムード 記事」のように固有名詞を必ず含めてください。
+メディア掲載記事を幅広く捕捉するため、「サイト:news」系や「紹介」「掲載」「取り上げ」等のバリエーションも含めてください。
 
 また "brand_keywords" として、このプレスリリースを特定できる固有名詞・ブランド名・モデル名のリストも返してください。
 本文中に登場するカタカナ表記（例：「baramood（パラムード）」なら「パラムード」）を必ず含めてください。
@@ -133,7 +134,7 @@ def search_articles(queries: list, keywords: list) -> list:
     with DDGS() as ddgs:
         for query in queries:
             try:
-                hits = list(ddgs.text(query, max_results=10))
+                hits = list(ddgs.text(query, max_results=25))
                 for h in hits:
                     url = h.get("href", "")
                     if not url or url in seen_urls:
@@ -192,16 +193,17 @@ def score_articles(articles: list, summary: str) -> list:
             a["article_class"] = "除外"
             a["reason"] = "ブログ・口コミ等のため除外"
 
-    # Step3: 通常記事のみClaudeで1次/2次/無関係を判定（最大30件）
-    target = [a for a in articles if a["article_type"] == "通常"][:30]
+    # Step3: 通常記事のみClaudeで1次/2次/無関係を判定（最大100件）
+    target = [a for a in articles if a["article_type"] == "通常"][:100]
     if not target:
         return articles
 
-    article_list = "\n".join(
-        f"{i+1}. タイトル: {a['title']}\n   URL: {a['url']}\n   スニペット: {a.get('snippet','')[:150]}"
-        for i, a in enumerate(target)
-    )
-    prompt = f"""以下のプレスリリース概要と記事リストを照合してください。
+    def classify_chunk(chunk, offset, summary):
+        article_list = "\n".join(
+            f"{offset+i+1}. タイトル: {a['title']}\n   URL: {a['url']}\n   スニペット: {a.get('snippet','')[:120]}"
+            for i, a in enumerate(chunk)
+        )
+        prompt = f"""以下のプレスリリース概要と記事リストを照合してください。
 
 プレスリリース概要:
 {summary}
@@ -210,31 +212,30 @@ def score_articles(articles: list, summary: str) -> list:
 {article_list}
 
 各記事を判定し、JSON配列のみ返してください（マークダウン不要）:
-[
-  {{
-    "index": 1,
-    "article_class": "1次記事" または "2次記事" または "無関係",
-    "media": "メディア名（日本語サイト名）",
-    "reason": "理由（20字以内）"
-  }}
-]
+[{{"index": {offset+1}, "article_class": "1次記事" または "2次記事" または "無関係", "media": "メディア名", "reason": "理由20字以内"}}]
 
 判定基準:
 - 1次記事: 独自取材・執筆した記事
-- 2次記事: プレスリリースの転載記事
+- 2次記事: プレスリリースの転載・要約記事
 - 無関係: このプレスリリースと無関係"""
+        msg = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=4000,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        raw = msg.content[0].text.strip()
+        try:
+            m = re.search(r'\[[\s\S]*\]', raw)
+            return json.loads(m.group() if m else raw)
+        except (json.JSONDecodeError, AttributeError):
+            return []
 
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=3000,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    raw = message.content[0].text.strip()
-    try:
-        match = re.search(r'\[[\s\S]*\]', raw)
-        scores = json.loads(match.group() if match else raw)
-    except (json.JSONDecodeError, AttributeError):
-        scores = []
+    # 30件ずつチャンクに分けて処理
+    CHUNK_SIZE = 30
+    scores = []
+    for i in range(0, len(target), CHUNK_SIZE):
+        chunk = target[i:i+CHUNK_SIZE]
+        scores.extend(classify_chunk(chunk, i, summary))
 
     score_map = {s["index"]: s for s in scores if isinstance(s, dict)}
     for i, article in enumerate(target):
