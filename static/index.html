@@ -105,15 +105,15 @@ main { max-width:1080px; margin:0 auto; padding:32px 28px 60px; }
 #url-section  { display:none; }
 
 /* ── Progress ── */
-.progress-card { padding:36px 32px; margin-bottom:20px; display:none; text-align:center; }
-.progress-spinner-wrap { display:flex; justify-content:center; margin-bottom:24px; }
+.progress-card { padding:32px; margin-bottom:20px; display:none; }
+.progress-header { display:flex; align-items:center; gap:16px; margin-bottom:28px; }
 .progress-spinner {
-  width:56px; height:56px; border-radius:50%;
-  border:4px solid var(--border2);
+  width:36px; height:36px; border-radius:50%; flex-shrink:0;
+  border:3px solid var(--border2);
   border-top-color:var(--accent);
   animation:spin .9s linear infinite;
 }
-.progress-title { font-size:20px; font-weight:700; color:var(--text); margin-bottom:24px; letter-spacing:.5px; }
+.progress-title { font-size:20px; font-weight:700; color:var(--text); letter-spacing:.5px; margin:0; }
 .progress-steps { display:flex; flex-direction:column; gap:12px; text-align:left; max-width:360px; margin:0 auto; }
 .step { display:flex; align-items:center; gap:14px; }
 .step-dot { width:10px; height:10px; border-radius:50%; background:var(--muted2); flex-shrink:0; transition:background .3s; }
@@ -291,8 +291,10 @@ main { max-width:1080px; margin:0 auto; padding:32px 28px 60px; }
 
   <!-- Progress card -->
   <div class="card progress-card" id="progress-card">
-    <div class="progress-spinner-wrap"><div class="progress-spinner"></div></div>
-    <div class="progress-title">解析・検索中...</div>
+    <div class="progress-header">
+      <div class="progress-spinner"></div>
+      <div class="progress-title">解析・検索中...</div>
+    </div>
     <div class="progress-steps">
       <div class="step"><div class="step-dot" id="dot-0"></div><div class="step-text" id="text-0">プレスリリースを読み込み中</div></div>
       <div class="step"><div class="step-dot" id="dot-1"></div><div class="step-text" id="text-1">Claudeで内容を解析中</div></div>
