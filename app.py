@@ -99,7 +99,10 @@ def analyze_press_release(text: str) -> dict:
   ]
 }}
 
-search_queriesは5〜7個、会社名＋製品名・製品名のみ・英語表記など多角的に生成してください。"""
+search_queriesは5〜7個生成してください。
+必ず「会社名」「製品名」「ブランド名」を含む具体的なクエリにしてください。
+「ハンディファン」「扇風機」など製品カテゴリ単独のクエリは不要です。
+例：「baramood 発売」「Emutas baramood」「baramood ハンディファン」のように固有名詞を必ず含めてください。"""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
@@ -113,24 +116,37 @@ search_queriesは5〜7個、会社名＋製品名・製品名のみ・英語表�
     except (json.JSONDecodeError, AttributeError):
         return {"company": "不明", "product": "不明", "summary": raw[:300], "release_date": "", "keywords": [], "search_queries": []}
 
-def search_articles(queries: list) -> list:
+def search_articles(queries: list, keywords: list) -> list:
     seen_urls = set()
     results = []
+
+    # キーワードを小文字で正規化（フィルタ用）
+    kw_lower = [k.lower() for k in keywords if len(k) >= 3]
+
     with DDGS() as ddgs:
         for query in queries:
             try:
-                hits = list(ddgs.text(query, max_results=8))
+                hits = list(ddgs.text(query, max_results=10))
                 for h in hits:
                     url = h.get("href", "")
-                    if url and url not in seen_urls:
-                        seen_urls.add(url)
-                        results.append({
-                            "title": h.get("title", ""),
-                            "url": url,
-                            "snippet": h.get("body", ""),
-                            "query": query,
-                            "date": h.get("published", ""),
-                        })
+                    if not url or url in seen_urls:
+                        continue
+                    title = h.get("title", "")
+                    snippet = h.get("body", "")
+                    combined = (title + " " + snippet).lower()
+
+                    # キーワードが1つも含まれない記事は除外
+                    if kw_lower and not any(k in combined for k in kw_lower):
+                        continue
+
+                    seen_urls.add(url)
+                    results.append({
+                        "title": title,
+                        "url": url,
+                        "snippet": snippet,
+                        "query": query,
+                        "date": h.get("published", ""),
+                    })
             except Exception:
                 continue
     return results
@@ -389,7 +405,10 @@ if source_name:
             st.write(f"会社：{info.get('company')} / 製品：{info.get('product')}")
 
             st.write(f"Web検索中（{len(info.get('search_queries', []))}クエリ）...")
-            articles = search_articles(info.get("search_queries", []))
+            # 会社名・製品名・キーワードをフィルタ用に渡す
+            filter_keywords = ([info.get("company",""), info.get("product","")] + info.get("keywords", []))
+            filter_keywords = [k for k in filter_keywords if k]
+            articles = search_articles(info.get("search_queries", []), filter_keywords)
             st.write(f"{len(articles)} 件の記事を発見")
 
             if articles:
