@@ -221,13 +221,6 @@ def _search_brave(queries, keywords):
 
 def search_articles(queries, keywords):
     try:
-        r = _search_google(queries, keywords)
-        if r:
-            return r, "Google"
-        raise RuntimeError("no results")
-    except Exception:
-        pass
-    try:
         r = _search_brave(queries, keywords)
         if r:
             return r, "Brave"
