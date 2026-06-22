@@ -198,6 +198,7 @@ def _search_ddg(queries: list, keywords: list) -> list:
     seen_urls = set()
     results = []
     kw_lower = [k.lower() for k in keywords if len(k) >= 2]
+    errors = []
     with DDGS() as ddgs:
         for query in queries:
             try:
@@ -208,13 +209,13 @@ def _search_ddg(queries: list, keywords: list) -> list:
                         continue
                     title = h.get("title", "")
                     snippet = h.get("body", "")
-                    combined = (title + " " + snippet).lower()
-                    if kw_lower and not any(k in combined for k in kw_lower):
-                        continue
                     seen_urls.add(url)
                     results.append({"title": title, "url": url, "snippet": snippet, "query": query, "date": ""})
-            except Exception:
+            except Exception as e:
+                errors.append(str(e))
                 continue
+    if errors:
+        st.warning(f"DuckDuckGo エラー: {errors[0]}")
     return results
 
 def search_articles(queries: list, keywords: list) -> list:
