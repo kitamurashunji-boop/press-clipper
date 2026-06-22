@@ -120,11 +120,10 @@ main { max-width:1080px; margin:0 auto; padding:32px 28px 60px; }
 .progress-title { font-size:16px; font-weight:700; color:var(--text); letter-spacing:.5px; margin:0; text-align:center; line-height:1.4; }
 .progress-steps { display:flex; flex-direction:column; gap:12px; flex:1; }
 .step { display:flex; align-items:center; gap:14px; }
-.step-dot { width:10px; height:10px; border-radius:50%; background:var(--muted2); flex-shrink:0; transition:background .3s; }
-.step-dot { position:relative; }
+.step-dot { width:22px; height:22px; border-radius:50%; background:var(--muted2); flex-shrink:0; transition:background .3s; position:relative; }
 .step-dot.done { background:var(--accent); }
-.step-dot.done::after { content:'✓'; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:8px; color:#0d0e14; font-weight:700; line-height:1; }
-.step-dot.active { background:var(--accent); box-shadow:0 0 0 4px var(--accent-dim); animation:pulse 1s infinite; }
+.step-dot.done::after { content:'✓'; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:13px; color:#0d0e14; font-weight:700; line-height:1; }
+.step-dot.active { background:var(--accent); box-shadow:0 0 0 6px var(--accent-dim); animation:pulse 1s infinite; }
 .step-text { font-size:14px; color:var(--muted); transition:color .3s; }
 .step-text.active { color:var(--text); font-weight:600; }
 .step-text.done { color:var(--muted); }
