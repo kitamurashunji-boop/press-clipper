@@ -1,6 +1,6 @@
 streamlit
 anthropic
-duckduckgo-search
+ddgs
 pypdf
 python-docx
 requests

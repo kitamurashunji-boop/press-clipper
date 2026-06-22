@@ -6,7 +6,10 @@ import os
 import requests
 from pathlib import Path
 from datetime import datetime
-from duckduckgo_search import DDGS
+try:
+    from ddgs import DDGS
+except ImportError:
+    from duckduckgo_search import DDGS
 from bs4 import BeautifulSoup
 
 # --- ページ設定 ---
