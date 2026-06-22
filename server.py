@@ -269,11 +269,12 @@ def score_articles(articles: list, summary: str) -> list:
         elif a["article_type"] == "除外":
             a["article_class"] = "除外"; a["reason"] = "ブログ・口コミ等のため除外"
 
-    target = [a for a in articles if a["article_type"] == "通常"][:100]
+    target = [a for a in articles if a["article_type"] == "通常"][:150]
     if not target:
         return articles
 
-    def classify_chunk(chunk, offset):
+    def classify_chunk(args):
+        chunk, offset = args
         article_list = "\n".join(
             f"{offset+i+1}. タイトル: {a['title']}\n   URL: {a['url']}\n   スニペット: {a.get('snippet','')[:120]}"
             for i, a in enumerate(chunk)
@@ -293,18 +294,23 @@ def score_articles(articles: list, summary: str) -> list:
 - 1次記事: 独自取材・執筆した記事
 - 2次記事: プレスリリースの転載・要約記事
 - 無関係: このプレスリリースと無関係"""
-        msg = client.messages.create(model="claude-sonnet-4-6", max_tokens=4000,
-            messages=[{"role": "user", "content": prompt}])
-        raw = msg.content[0].text.strip()
         try:
+            c = get_client()
+            msg = c.messages.create(model="claude-sonnet-4-6", max_tokens=4000,
+                messages=[{"role": "user", "content": prompt}])
+            raw = msg.content[0].text.strip()
             m = re.search(r'\[[\s\S]*\]', raw)
             return json.loads(m.group() if m else raw)
         except Exception:
             return []
 
+    import concurrent.futures
+    chunk_size = 50
+    chunks = [(target[i:i+chunk_size], i) for i in range(0, len(target), chunk_size)]
     scores = []
-    for i in range(0, len(target), 30):
-        scores.extend(classify_chunk(target[i:i+30], i))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(chunks)) as ex:
+        for result in ex.map(classify_chunk, chunks):
+            scores.extend(result)
 
     score_map = {s["index"]: s for s in scores if isinstance(s, dict)}
     for i, article in enumerate(target):
