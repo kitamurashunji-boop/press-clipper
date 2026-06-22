@@ -92,6 +92,7 @@ def analyze_press_release(text: str) -> dict:
   "summary": "リリース内容の要約（2〜3文）",
   "release_date": "発表日（わかれば）",
   "keywords": ["キーワード1", "キーワード2"],
+  "press_title": "プレスリリースのタイトル（そのまま）",
   "search_queries": [
     "日本語検索クエリ1",
     "日本語検索クエリ2",
@@ -99,11 +100,12 @@ def analyze_press_release(text: str) -> dict:
   ]
 }}
 
-search_queriesは10〜12個生成してください。
-必ず「会社名」「製品名」「ブランド名」を含む具体的なクエリにしてください。
-「ハンディファン」「扇風機」など製品カテゴリ単独のクエリは不要です。
-例：「baramood 発売」「Emutas baramood」「baramood レビュー」「パラムード 記事」のように固有名詞を必ず含めてください。
-メディア掲載記事を幅広く捕捉するため、「サイト:news」系や「紹介」「掲載」「取り上げ」等のバリエーションも含めてください。
+search_queriesは12〜15個生成してください。
+以下の3種類をバランスよく含めてください：
+1. ブランド名・会社名を含む基本クエリ（例：「baramood 発売」「Emutas パラムード」）
+2. プレスリリースのタイトルをそのまま使ったクォート検索（例："【新発売】羽のないハンディファン baramood"）
+3. 転載記事を探すクエリ（例：「パラムード site:news.yahoo.co.jp」「baramood site:prtimes.jp -prtimes.jp/main」）
+「ハンディファン」などカテゴリ単独クエリは不要です。
 
 また "brand_keywords" として、このプレスリリースを特定できる固有名詞・ブランド名・モデル名のリストも返してください。
 本文中に登場するカタカナ表記（例：「baramood（パラムード）」なら「パラムード」）を必ず含めてください。
@@ -114,7 +116,7 @@ search_queriesは10〜12個生成してください。
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=1024,
+        max_tokens=2048,
         messages=[{"role": "user", "content": prompt}]
     )
     raw = message.content[0].text.strip()
@@ -416,6 +418,13 @@ if source_name:
         progress.progress(25, text="Web検索中...")
 
         queries = info.get("search_queries", [])
+        # プレスリリースタイトルのクォート検索を自動追加
+        press_title = info.get("press_title", "")
+        if press_title and len(press_title) > 10:
+            quoted = f'"{press_title[:40]}"'
+            if quoted not in queries:
+                queries.append(quoted)
+
         brand_kw = info.get("brand_keywords", [])
         if not brand_kw:
             brand_kw = [info.get("company",""), info.get("product","")]
