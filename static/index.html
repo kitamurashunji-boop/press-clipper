@@ -24,7 +24,28 @@
   --r:        14px;
   --r-sm:     8px;
 }
-body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; line-height:1.5; }
+body {
+  font-family:'Inter',-apple-system,sans-serif;
+  background: var(--bg); color:var(--text); min-height:100vh; font-size:14px; line-height:1.5;
+  background-image: url('/static/AUR_LOGO_MOTIF.png');
+  background-repeat: no-repeat;
+  background-position: center 40%;
+  background-size: 33vw auto;
+  background-blend-mode: luminosity;
+  /* 背景色に溶け込む薄さ */
+  --motif-opacity: 0.06;
+}
+body::before {
+  content:'';
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image: url('/static/AUR_LOGO_MOTIF.png');
+  background-repeat: no-repeat;
+  background-position: center 40%;
+  background-size: 33vw auto;
+  opacity: 0.06;
+  filter: grayscale(100%) brightness(2);
+}
+main, nav { position:relative; z-index:1; }
 
 /* ── Nav ── */
 nav {
