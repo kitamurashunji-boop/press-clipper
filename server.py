@@ -88,14 +88,20 @@ def analyze_press_release(text: str) -> dict:
   "release_date": "発表日（わかれば）",
   "keywords": ["キーワード1", "キーワード2"],
   "press_title": "プレスリリースのタイトル（そのまま）",
-  "brand_keywords": ["固有名詞1", "ブランド名2"],
+  "brand_keywords": ["固有名詞をそのまま保持1", "ブランド名2"],
   "search_queries": [
-    "日本語検索クエリ1",
-    "日本語検索クエリ2"
+    "日本語検索クエリ1"
   ]
 }}
 
-search_queriesは12〜15個。1次記事用5〜6個（ブランド名＋レビュー/紹介/特集等）、2次記事用5〜6個（タイトルの一部をクォート）、英語2〜3個。"""
+【重要ルール】
+- brand_keywordsには、ブランド名・製品名・固有名詞を分割せずそのままの表記で入れる（例：baramoodはbaramood、パラムードはパラムードのまま）
+- search_queriesは10〜12個作成する
+  - 1次記事用（3〜4個）: ブランド名/製品名 + "ニュース"/"発売"/"新発売"/"発表" など報道向けワード
+  - 2次記事用（3〜4個）: ブランド名/製品名 + "レビュー"/"紹介"/"特集"/"おすすめ" など
+  - ニュースメディア向け（2〜3個）: プレスリリースタイトルの一部をそのままクォートで囲む
+  - 英語ブランド名がある場合（1〜2個）: 英語表記のままで検索
+- 関係のない一般ワード（カテゴリ名のみ等）での検索は避ける。必ずブランド名か製品名を含めること"""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
@@ -429,9 +435,16 @@ async def analyze(
     product = info.get("product", "")
 
     if press_title and len(press_title) > 10:
-        quoted = f'"{press_title[:40]}"'
-        if quoted not in queries:
-            queries.append(quoted)
+        # タイトル全文をそのまま検索（2次記事が転載する際に使うため）
+        full_quoted = f'"{press_title}"'
+        if full_quoted not in queries:
+            queries.insert(0, full_quoted)
+        # 前半部分も追加（記事によって見出しが途中までのことがある）
+        if len(press_title) > 30:
+            half = press_title[:len(press_title)//2].rstrip('　 ')
+            half_quoted = f'"{half}"'
+            if half_quoted not in queries:
+                queries.insert(1, half_quoted)
 
     # フォールバック: クエリが少ない場合は会社名・製品名から生成
     if len(queries) < 3 and (company or product):

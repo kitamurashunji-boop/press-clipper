@@ -548,6 +548,8 @@ function clearFile() {
   document.getElementById('analyze-btn-file').disabled = true;
 }
 
+let _searchTimer = null;
+
 function setProgress(step, pct) {
   for (let i = 0; i < 5; i++) {
     const dot = document.getElementById(`dot-${i}`);
@@ -556,6 +558,31 @@ function setProgress(step, pct) {
     txt.className = 'step-text' + (i < step ? ' done' : i === step ? ' active' : '');
   }
   document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+function startSearchAnimation() {
+  const bar = document.getElementById('progress-bar');
+  const title = document.getElementById('progress-title');
+  const totalSec = 40;
+  const startPct = 50;
+  const endPct = 74;
+  const startTime = Date.now();
+  const msgs = ['記事を収集中...', 'ニュースサイトを検索中...', 'Braveで記事を検索中...', 'もう少しお待ちください...'];
+  let msgIdx = 0;
+  _searchTimer = setInterval(() => {
+    const elapsed = (Date.now() - startTime) / 1000;
+    const ratio = Math.min(elapsed / totalSec, 0.98);
+    const pct = startPct + (endPct - startPct) * ratio;
+    bar.style.width = pct + '%';
+    const remaining = Math.max(0, Math.round(totalSec - elapsed));
+    msgIdx = Math.floor(elapsed / 10) % msgs.length;
+    title.textContent = remaining > 3 ? `${msgs[msgIdx]}（残り約${remaining}秒）` : '記事を収集中...';
+  }, 800);
+}
+
+function stopSearchAnimation() {
+  if (_searchTimer) { clearInterval(_searchTimer); _searchTimer = null; }
+  document.getElementById('progress-title').textContent = '解析・検索中...';
 }
 
 async function startAnalysis() {
@@ -589,7 +616,9 @@ async function startAnalysis() {
 
   try {
     setProgress(2, 50);
+    startSearchAnimation();
     const res = await fetch('/api/analyze', { method: 'POST', body: formData });
+    stopSearchAnimation();
     setProgress(3, 75);
     await delay(300);
 
@@ -604,6 +633,7 @@ async function startAnalysis() {
 
     renderResults(data);
   } catch (e) {
+    stopSearchAnimation();
     clipState = 'input';
     document.getElementById('progress-card').style.display = 'none';
     document.getElementById('input-card').style.display = '';
