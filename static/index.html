@@ -330,9 +330,12 @@ main { max-width:1080px; margin:0 auto; padding:32px 28px 60px; }
     <div class="card" style="padding:16px 20px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
       <div style="display:flex;align-items:center;gap:8px;">
         <i data-lucide="globe" style="width:16px;height:16px;color:var(--muted);"></i>
-        <span style="font-size:15px;color:var(--text);font-weight:600;">WEB小計（1次 ＋ 2次）</span>
+        <span style="font-size:15px;color:var(--text);font-weight:600;">Web小計（1次 ＋ 2次）</span>
       </div>
-      <div style="font-size:24px;font-weight:700;color:var(--text);" id="stat-web-total">0 <span style="font-size:13px;color:var(--muted);font-weight:400;">記事</span></div>
+      <div style="display:flex;align-items:baseline;gap:6px;">
+        <span class="stat-val" style="color:var(--text);" id="stat-web-total">0</span>
+        <span style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;">記事</span>
+      </div>
     </div>
     <div class="stats-grid">
       <div class="card stat-card">
@@ -626,7 +629,7 @@ function renderResults(data) {
   document.getElementById('stat-wire').textContent = data.stats.wire;
   document.getElementById('stat-sns').textContent = data.stats.sns;
   const webTotal = (data.stats.primary || 0) + (data.stats.secondary || 0);
-  document.getElementById('stat-web-total').innerHTML = webTotal + ' <span style="font-size:13px;color:var(--muted);font-weight:400;">記事</span>';
+  document.getElementById('stat-web-total').textContent = webTotal;
 
   // Engine
   document.getElementById('engine-badge').textContent = `🔍 ${data.search_engine}`;
