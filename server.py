@@ -256,73 +256,47 @@ def get_domain(url: str) -> str:
     domain = re.sub(r'https?://(?:www\.)?([^/]+).*', r'\1', url)
     return MEDIA_DOMAIN_MAP.get(domain, domain)
 
+PRIMARY_DOMAINS = {
+    "prtimes.jp", "atpress.ne.jp", "kyodonewsprwire.jp", "digitalpr.jp",
+    "pr-news.jp", "dreamnews.jp", "release.nikkei.co.jp",
+    "nikkei.com", "asahi.com", "yomiuri.co.jp", "mainichi.jp", "sankei.com",
+    "nhk.or.jp", "jiji.com", "kyodo.co.jp", "reuters.com", "bloomberg.co.jp",
+    "tokyokeizai.net", "diamond.jp", "president.jp", "businessinsider.jp",
+    "itmedia.co.jp", "impress.co.jp", "ascii.jp", "mynavi.jp", "gizmodo.jp",
+    "fashionsnap.com", "wwdjapan.com", "senken.co.jp",
+}
+
+SECONDARY_INDICATORS = [
+    "news", "article", "post", "entry", "column", "feature", "topics",
+    "ニュース", "記事", "掲載", "紹介",
+]
+
 def score_articles(articles: list, summary: str) -> list:
-    client = get_client()
+    brand_words = [w.lower() for w in (summary or "").split()[:20] if len(w) >= 3]
+
     for a in articles:
         a["article_type"] = classify_article(a["url"])
         a["media"] = get_domain(a["url"])
+
     for a in articles:
-        if a["article_type"] == "ワイヤー":
-            a["article_class"] = "ワイヤーサービス"; a["reason"] = "ワイヤーサービス経由の配信"
-        elif a["article_type"] == "SNS":
+        t = a["article_type"]
+        if t == "ワイヤー":
+            a["article_class"] = "ワイヤーサービス"; a["reason"] = "配信サービス経由"
+        elif t == "SNS":
             a["article_class"] = "SNS"; a["reason"] = "SNS投稿"
-        elif a["article_type"] == "除外":
-            a["article_class"] = "除外"; a["reason"] = "ブログ・口コミ等のため除外"
-
-    target = [a for a in articles if a["article_type"] == "通常"][:150]
-    if not target:
-        return articles
-
-    def classify_chunk(args):
-        chunk, offset = args
-        article_list = "\n".join(
-            f"{offset+i+1}. タイトル: {a['title']}\n   URL: {a['url']}\n   スニペット: {a.get('snippet','')[:120]}"
-            for i, a in enumerate(chunk)
-        )
-        prompt = f"""以下のプレスリリース概要と記事リストを照合してください。
-
-プレスリリース概要:
-{summary}
-
-記事リスト:
-{article_list}
-
-各記事を判定し、JSON配列のみ返してください（マークダウン不要）:
-[{{"index": {offset+1}, "article_class": "1次記事" または "2次記事" または "無関係", "media": "メディア名", "reason": "理由20字以内"}}]
-
-判定基準:
-- 1次記事: 独自取材・執筆した記事
-- 2次記事: プレスリリースの転載・要約記事
-- 無関係: このプレスリリースと無関係"""
-        try:
-            c = get_client()
-            msg = c.messages.create(model="claude-sonnet-4-6", max_tokens=4000,
-                messages=[{"role": "user", "content": prompt}])
-            raw = msg.content[0].text.strip()
-            m = re.search(r'\[[\s\S]*\]', raw)
-            return json.loads(m.group() if m else raw)
-        except Exception:
-            return []
-
-    import concurrent.futures
-    chunk_size = 50
-    chunks = [(target[i:i+chunk_size], i) for i in range(0, len(target), chunk_size)]
-    scores = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(chunks)) as ex:
-        for result in ex.map(classify_chunk, chunks):
-            scores.extend(result)
-
-    score_map = {s["index"]: s for s in scores if isinstance(s, dict)}
-    for i, article in enumerate(target):
-        s = score_map.get(i + 1, {})
-        article["article_class"] = s.get("article_class", "無関係")
-        if s.get("media"):
-            article["media"] = s["media"]
-        article["reason"] = s.get("reason", "")
-
-    for a in articles:
-        if "article_class" not in a:
-            a["article_class"] = "無関係"; a["reason"] = ""
+        elif t == "除外":
+            a["article_class"] = "除外"; a["reason"] = "ブログ・口コミ等"
+        else:
+            domain = re.sub(r'https?://(?:www\.)?([^/]+).*', r'\1', a["url"]).lower()
+            title_lower = (a.get("title", "") + a.get("snippet", "")).lower()
+            if domain in PRIMARY_DOMAINS and "prtimes" not in domain and "atpress" not in domain:
+                a["article_class"] = "1次記事"; a["reason"] = "主要メディア掲載"
+            elif any(ind in a["url"].lower() or ind in title_lower for ind in SECONDARY_INDICATORS):
+                a["article_class"] = "2次記事"; a["reason"] = "ニュース転載・紹介記事"
+            elif any(w in title_lower for w in brand_words):
+                a["article_class"] = "2次記事"; a["reason"] = "ブランドキーワード一致"
+            else:
+                a["article_class"] = "2次記事"; a["reason"] = "Web掲載記事"
 
     return articles
 
