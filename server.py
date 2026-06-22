@@ -204,25 +204,31 @@ def _search_ddg(queries, keywords):
     return results
 
 def _search_brave(queries, keywords):
+    import concurrent.futures
     api_key = _secret("BRAVE_API_KEY")
     if not api_key:
         return []
-    seen, results = set(), []
-    for query in queries:
+
+    def fetch_one(query):
         try:
             resp = requests.get("https://api.search.brave.com/res/v1/web/search",
                 headers={"Accept": "application/json", "X-Subscription-Token": api_key},
-                params={"q": query, "count": 10, "search_lang": "ja"}, timeout=10)
+                params={"q": query, "count": 10, "search_lang": "ja", "country": "jp"}, timeout=10)
             if resp.status_code != 200:
-                continue
-            for item in resp.json().get("web", {}).get("results", []):
-                url = item.get("url", "")
-                if not url or url in seen:
-                    continue
-                seen.add(url)
-                results.append({"title": item.get("title", ""), "url": url, "snippet": item.get("description", ""), "query": query, "date": ""})
+                return []
+            return [{"title": item.get("title", ""), "url": item.get("url", ""),
+                     "snippet": item.get("description", ""), "query": query, "date": ""}
+                    for item in resp.json().get("web", {}).get("results", []) if item.get("url")]
         except Exception:
-            continue
+            return []
+
+    seen, results = set(), []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as ex:
+        for items in ex.map(fetch_one, queries):
+            for item in items:
+                if item["url"] not in seen:
+                    seen.add(item["url"])
+                    results.append(item)
     return results
 
 def search_articles(queries, keywords):
