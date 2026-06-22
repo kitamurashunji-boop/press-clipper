@@ -102,7 +102,13 @@ def analyze_press_release(text: str) -> dict:
 search_queriesは5〜7個生成してください。
 必ず「会社名」「製品名」「ブランド名」を含む具体的なクエリにしてください。
 「ハンディファン」「扇風機」など製品カテゴリ単独のクエリは不要です。
-例：「baramood 発売」「Emutas baramood」「baramood ハンディファン」のように固有名詞を必ず含めてください。"""
+例：「baramood 発売」「Emutas baramood」「baramood ハンディファン」のように固有名詞を必ず含めてください。
+
+また "brand_keywords" として、このプレスリリースを特定できる固有名詞・ブランド名・モデル名のリストも返してください（日本語・英語両方）。
+{{
+  ...既存のフィールド...,
+  "brand_keywords": ["baramood", "バラムード", "Emutas", "HANIL ELECTRONICS"]
+}}"""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
@@ -405,9 +411,11 @@ if source_name:
             st.write(f"会社：{info.get('company')} / 製品：{info.get('product')}")
 
             st.write(f"Web検索中（{len(info.get('search_queries', []))}クエリ）...")
-            # 会社名・製品名のみをフィルタ用に使う（「ハンディファン」等の一般語は除外）
-            filter_keywords = [info.get("company",""), info.get("product","")]
-            filter_keywords = [k for k in filter_keywords if k and len(k) >= 3]
+            # brand_keywords（固有名詞）を優先、なければ会社名・製品名を使用
+            brand_kw = info.get("brand_keywords", [])
+            if not brand_kw:
+                brand_kw = [info.get("company",""), info.get("product","")]
+            filter_keywords = [k for k in brand_kw if k and len(k) >= 2]
             articles = search_articles(info.get("search_queries", []), filter_keywords)
             st.write(f"{len(articles)} 件の記事を発見")
 
