@@ -6,13 +6,26 @@ import os
 import requests
 from pathlib import Path
 from datetime import datetime
+from bs4 import BeautifulSoup
+
 try:
     from ddgs import DDGS
 except ImportError:
     from duckduckgo_search import DDGS
-from bs4 import BeautifulSoup
 
-# --- ページ設定 ---
+# ワイヤーサービスのドメイン一覧
+WIRE_DOMAINS = [
+    "prtimes.jp", "atpress.ne.jp", "kyodonewsprwire.jp",
+    "digitalpr.jp", "pr-news.jp", "dreamnews.jp", "release.nikkei.co.jp"
+]
+
+# 除外ドメイン（コーポレート・ブログ等の判定に使うキーワード）
+EXCLUDE_KEYWORDS = [
+    "ameblo.jp", "note.com", "qiita.com", "hatena",
+    "cosme.net", "lips.beauty", "rakuten.co.jp/blog"
+]
+
+# ページ設定
 st.set_page_config(
     page_title="プレスリリース クリッピングツール",
     page_icon="📋",
@@ -30,12 +43,10 @@ def fetch_prtimes_text(url: str) -> str:
     resp.raise_for_status()
     resp.encoding = resp.apparent_encoding or "utf-8"
     soup = BeautifulSoup(resp.content, "html.parser")
-
     for sel in ["div#press-release-body", "div.press-release-body-v3-0-0", "div.articleBody", "article", "div.content"]:
         el = soup.select_one(sel)
         if el:
             return el.get_text(separator="\n", strip=True)
-
     return soup.get_text(separator="\n", strip=True)[:8000]
 
 # --- ファイル読み込み ---
@@ -118,16 +129,37 @@ def search_articles(queries: list) -> list:
                             "url": url,
                             "snippet": h.get("body", ""),
                             "query": query,
+                            "date": h.get("published", ""),
                         })
             except Exception:
                 continue
     return results
 
+def classify_article(url: str) -> str:
+    """ワイヤーサービス / SNS / 除外 / 通常 を判定"""
+    domain = re.sub(r'https?://(?:www\.)?([^/]+).*', r'\1', url).lower()
+    if any(w in domain for w in WIRE_DOMAINS):
+        return "ワイヤー"
+    if any(x in domain for x in ["twitter.com", "x.com", "instagram.com", "facebook.com", "youtube.com", "line.me", "smartnews.com"]):
+        return "SNS"
+    if any(x in url.lower() for x in EXCLUDE_KEYWORDS):
+        return "除外"
+    return "通常"
+
 def score_articles(articles: list, summary: str) -> list:
     client = get_client()
+
+    # 除外対象は事前にフィルタ
+    for a in articles:
+        a["article_type"] = classify_article(a["url"])
+
+    target = [a for a in articles if a["article_type"] != "除外"]
+    if not target:
+        return articles
+
     article_list = "\n".join(
-        f"{i+1}. タイトル: {a['title']}\n   スニペット: {a['snippet'][:200]}"
-        for i, a in enumerate(articles)
+        f"{i+1}. タイトル: {a['title']}\n   URL: {a['url']}\n   スニペット: {a['snippet'][:200]}"
+        for i, a in enumerate(target)
     )
     prompt = f"""以下のプレスリリース概要と、Web検索で見つかった記事リストを照合してください。
 
@@ -137,16 +169,20 @@ def score_articles(articles: list, summary: str) -> list:
 記事リスト:
 {article_list}
 
-各記事について、このプレスリリースの内容を報道しているかどうかを判定し、
-以下のJSON配列で返してください（マークダウン不要、JSONのみ）:
+各記事について判定し、以下のJSON配列で返してください（マークダウン不要、JSONのみ）:
 [
   {{
     "index": 1,
-    "relevance": "高" または "中" または "低",
-    "media": "メディア名（URLから推定）",
+    "article_class": "1次記事" または "2次記事" または "無関係",
+    "media": "メディア名（サイト名）",
     "reason": "判定理由（1文）"
   }}
-]"""
+]
+
+判定基準:
+- 1次記事: そのメディアが独自に取材・執筆した記事
+- 2次記事: プレスリリースやワイヤーサービスを転載した記事
+- 無関係: このプレスリリースと関係のない記事"""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
@@ -159,47 +195,69 @@ def score_articles(articles: list, summary: str) -> list:
         scores = json.loads(match.group() if match else raw)
     except (json.JSONDecodeError, AttributeError):
         scores = []
+
     score_map = {s["index"]: s for s in scores if isinstance(s, dict)}
-    for i, article in enumerate(articles):
+    for i, article in enumerate(target):
         s = score_map.get(i + 1, {})
-        article["relevance"] = s.get("relevance", "低")
+        article["article_class"] = s.get("article_class", "不明")
         article["media"] = s.get("media", re.sub(r'https?://(?:www\.)?([^/]+).*', r'\1', article["url"]))
         article["reason"] = s.get("reason", "")
+
+    # ワイヤーサービスはクラスを上書き
+    for a in articles:
+        if a["article_type"] == "ワイヤー":
+            a.setdefault("article_class", "ワイヤーサービス")
+            a.setdefault("media", re.sub(r'https?://(?:www\.)?([^/]+).*', r'\1', a["url"]))
+            a.setdefault("reason", "ワイヤーサービス経由の配信")
+        elif a["article_type"] == "SNS":
+            a.setdefault("article_class", "SNS")
+            a.setdefault("media", re.sub(r'https?://(?:www\.)?([^/]+).*', r'\1', a["url"]))
+            a.setdefault("reason", "SNS投稿")
+
     return articles
 
 # --- HTMLレポート生成 ---
 
 def generate_html(info: dict, articles: list, filename: str) -> str:
     now = datetime.now().strftime("%Y年%m月%d日 %H:%M")
-    high = [a for a in articles if a["relevance"] == "高"]
-    mid  = [a for a in articles if a["relevance"] == "中"]
-    low  = [a for a in articles if a["relevance"] == "低"]
 
-    def badge(rel):
+    primary   = [a for a in articles if a.get("article_class") == "1次記事"]
+    secondary = [a for a in articles if a.get("article_class") == "2次記事"]
+    wire      = [a for a in articles if a.get("article_class") == "ワイヤーサービス"]
+    sns       = [a for a in articles if a.get("article_class") == "SNS"]
+    other     = [a for a in articles if a.get("article_class") not in ("1次記事","2次記事","ワイヤーサービス","SNS","無関係","除外")]
+
+    def badge(cls):
         styles = {
-            "高": ("background:#d4edda;color:#155724", "掲載あり"),
-            "中": ("background:#fff3cd;color:#856404", "関連あり"),
-            "低": ("background:#f8d7da;color:#721c24", "関連低"),
+            "1次記事":       ("background:#fff3cd;color:#856404;border:1px solid #ffc107", "1次記事"),
+            "2次記事":       ("background:#d4edda;color:#155724;border:1px solid #28a745", "2次記事"),
+            "ワイヤーサービス": ("background:#cce5ff;color:#004085;border:1px solid #004085", "ワイヤー"),
+            "SNS":           ("background:#e2d9f3;color:#4a235a;border:1px solid #6f42c1", "SNS"),
         }
-        style, label = styles.get(rel, ("background:#eee;color:#333", rel))
+        style, label = styles.get(cls, ("background:#eee;color:#333;border:1px solid #ccc", cls or "不明"))
         return f'<span style="{style};padding:2px 10px;border-radius:12px;font-size:12px;font-weight:bold;">{label}</span>'
 
     def rows(arts):
         if not arts:
-            return '<tr><td colspan="4" style="text-align:center;color:#999;padding:16px;">該当なし</td></tr>'
+            return '<tr><td colspan="5" style="text-align:center;color:#999;padding:16px;">該当なし</td></tr>'
         out = ""
         for a in arts:
-            out += f"""<tr>
-              <td style="padding:10px 12px;">{badge(a['relevance'])}</td>
-              <td style="padding:10px 12px;">
+            cls = a.get("article_class", "")
+            row_bg = "background:#fffde7;" if cls == "1次記事" else ""
+            date_str = a.get("date", "")[:10] if a.get("date") else "—"
+            out += f"""<tr style="{row_bg}">
+              <td style="padding:8px 12px;">{badge(cls)}</td>
+              <td style="padding:8px 12px;font-size:12px;color:#555;">{date_str}</td>
+              <td style="padding:8px 12px;">
                 <a href="{a['url']}" target="_blank" style="color:#1a73e8;text-decoration:none;font-weight:500;">{a['title']}</a>
-                <div style="font-size:12px;color:#666;margin-top:4px;">{a['snippet'][:120]}...</div>
+                <div style="font-size:12px;color:#666;margin-top:3px;">{a.get('snippet','')[:100]}...</div>
               </td>
-              <td style="padding:10px 12px;font-size:13px;color:#555;">{a['media']}</td>
-              <td style="padding:10px 12px;font-size:12px;color:#777;">{a['reason']}</td>
+              <td style="padding:8px 12px;font-size:13px;color:#555;">{a.get('media','')}</td>
+              <td style="padding:8px 12px;font-size:12px;color:#777;">{a.get('reason','')}</td>
             </tr>"""
         return out
 
+    all_display = primary + secondary + wire + sns + other
     keywords_html = "".join(
         f'<span style="background:#e8f0fe;color:#1a73e8;padding:3px 10px;border-radius:12px;font-size:13px;margin:2px;display:inline-block;">{k}</span>'
         for k in info.get("keywords", [])
@@ -212,15 +270,16 @@ def generate_html(info: dict, articles: list, filename: str) -> str:
 <title>クリッピングレポート</title>
 <style>
   body{{font-family:'Helvetica Neue',Arial,'Hiragino Sans',sans-serif;background:#f5f7fa;margin:0;padding:24px;color:#333;}}
-  .wrap{{max-width:960px;margin:0 auto;}}
+  .wrap{{max-width:1100px;margin:0 auto;}}
   .card{{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:24px;margin-bottom:20px;}}
   h1{{font-size:22px;margin:0 0 4px;}} h2{{font-size:16px;color:#555;margin:0 0 16px;border-bottom:2px solid #f0f0f0;padding-bottom:8px;}}
-  .stat{{text-align:center;}} .stat-n{{font-size:32px;font-weight:bold;}} .stat-l{{font-size:12px;color:#888;margin-top:4px;}}
+  .stat{{text-align:center;}} .stat-n{{font-size:28px;font-weight:bold;}} .stat-l{{font-size:12px;color:#888;margin-top:4px;}}
   .summary{{background:#f8f9ff;border-left:4px solid #4a90d9;padding:12px 16px;border-radius:4px;line-height:1.7;}}
   table{{width:100%;border-collapse:collapse;}} tr:nth-child(even){{background:#fafafa;}}
-  th{{background:#f0f4ff;padding:10px 12px;text-align:left;font-size:13px;color:#555;}}
+  th{{background:#f0f4ff;padding:8px 12px;text-align:left;font-size:13px;color:#555;}}
   td{{border-top:1px solid #f0f0f0;vertical-align:top;}}
   .foot{{text-align:center;color:#aaa;font-size:12px;margin-top:12px;}}
+  .legend{{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:12px;}}
 </style>
 </head>
 <body>
@@ -228,10 +287,11 @@ def generate_html(info: dict, articles: list, filename: str) -> str:
   <div class="card">
     <h1>クリッピングレポート</h1>
     <div style="color:#888;font-size:13px;margin-bottom:16px;">作成：{now}　|　ソース：{filename}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
-      <div class="stat"><div class="stat-n" style="color:#155724;">{len(high)}</div><div class="stat-l">掲載あり</div></div>
-      <div class="stat"><div class="stat-n" style="color:#856404;">{len(mid)}</div><div class="stat-l">関連あり</div></div>
-      <div class="stat"><div class="stat-n">{len(articles)}</div><div class="stat-l">検索件数合計</div></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+      <div class="stat"><div class="stat-n" style="color:#856404;">{len(primary)}</div><div class="stat-l">1次記事</div></div>
+      <div class="stat"><div class="stat-n" style="color:#155724;">{len(secondary)}</div><div class="stat-l">2次記事</div></div>
+      <div class="stat"><div class="stat-n" style="color:#004085;">{len(wire)}</div><div class="stat-l">ワイヤー</div></div>
+      <div class="stat"><div class="stat-n" style="color:#4a235a;">{len(sns)}</div><div class="stat-l">SNS</div></div>
     </div>
   </div>
   <div class="card">
@@ -246,12 +306,22 @@ def generate_html(info: dict, articles: list, filename: str) -> str:
   </div>
   <div class="card">
     <h2>掲載記事一覧</h2>
+    <div class="legend">
+      <span style="background:#fff3cd;color:#856404;padding:2px 10px;border-radius:12px;border:1px solid #ffc107;font-weight:bold;">1次記事</span>
+      <span style="background:#d4edda;color:#155724;padding:2px 10px;border-radius:12px;border:1px solid #28a745;font-weight:bold;">2次記事</span>
+      <span style="background:#cce5ff;color:#004085;padding:2px 10px;border-radius:12px;border:1px solid #004085;font-weight:bold;">ワイヤー</span>
+      <span style="background:#e2d9f3;color:#4a235a;padding:2px 10px;border-radius:12px;border:1px solid #6f42c1;font-weight:bold;">SNS</span>
+      <span style="color:#888;">※1次記事は黄色背景</span>
+    </div>
     <table>
       <thead><tr>
-        <th style="width:90px;">関連度</th><th>記事タイトル・概要</th>
-        <th style="width:140px;">メディア</th><th style="width:180px;">判定理由</th>
+        <th style="width:100px;">種別</th>
+        <th style="width:90px;">掲載日</th>
+        <th>記事タイトル・概要</th>
+        <th style="width:140px;">媒体名</th>
+        <th style="width:160px;">判定理由</th>
       </tr></thead>
-      <tbody>{rows(high + mid + low)}</tbody>
+      <tbody>{rows(all_display)}</tbody>
     </table>
   </div>
   <div class="foot">Generated by Press Clipper | Powered by Claude</div>
@@ -277,9 +347,7 @@ with tab2:
         help="PR TIMESのプレスリリースページのURLを貼り付けてください"
     )
 
-# 入力ソースを判定
 source_name = None
-
 if uploaded:
     source_name = uploaded.name
 elif prtimes_url and prtimes_url.startswith("http"):
@@ -312,18 +380,21 @@ if source_name:
             st.write(f"{len(articles)} 件の記事を発見")
 
             if articles:
-                st.write("関連度を判定しています...")
+                st.write("記事を分類・判定しています...")
                 articles = score_articles(articles, info.get("summary", ""))
 
             status.update(label="完了！", state="complete")
 
-        high = [a for a in articles if a["relevance"] == "高"]
-        mid  = [a for a in articles if a["relevance"] == "中"]
+        primary   = [a for a in articles if a.get("article_class") == "1次記事"]
+        secondary = [a for a in articles if a.get("article_class") == "2次記事"]
+        wire      = [a for a in articles if a.get("article_class") == "ワイヤーサービス"]
+        sns       = [a for a in articles if a.get("article_class") == "SNS"]
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("掲載あり", len(high))
-        col2.metric("関連あり", len(mid))
-        col3.metric("検索件数合計", len(articles))
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("1次記事", len(primary))
+        col2.metric("2次記事", len(secondary))
+        col3.metric("ワイヤー", len(wire))
+        col4.metric("SNS", len(sns))
 
         html = generate_html(info, articles, source_name)
         stem = Path(uploaded.name).stem if uploaded else "クリッピング"
@@ -338,7 +409,9 @@ if source_name:
 
         with st.expander("記事一覧プレビュー"):
             for a in articles:
-                rel_color = {"高": "green", "中": "orange", "低": "red"}.get(a["relevance"], "gray")
+                cls = a.get("article_class", "")
+                color_map = {"1次記事": "orange", "2次記事": "green", "ワイヤーサービス": "blue", "SNS": "violet"}
+                color = color_map.get(cls, "gray")
                 st.markdown(
-                    f":{rel_color}[{a['relevance']}]　**[{a['title']}]({a['url']})**　`{a['media']}`  \n{a['snippet'][:100]}..."
+                    f":{color}[{cls}]　**[{a['title']}]({a['url']})**　`{a.get('media','')}`  \n{a.get('snippet','')[:100]}..."
                 )
