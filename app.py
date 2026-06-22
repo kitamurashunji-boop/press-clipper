@@ -25,7 +25,8 @@ def fetch_prtimes_text(url: str) -> str:
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     resp = requests.get(url, headers=headers, timeout=15)
     resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
+    resp.encoding = resp.apparent_encoding or "utf-8"
+    soup = BeautifulSoup(resp.content, "html.parser")
 
     for sel in ["div#press-release-body", "div.press-release-body-v3-0-0", "div.articleBody", "article", "div.content"]:
         el = soup.select_one(sel)
