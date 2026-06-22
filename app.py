@@ -393,39 +393,47 @@ elif prtimes_url and prtimes_url.startswith("http"):
 if source_name:
     if st.button("解析・検索を開始", type="primary", use_container_width=True):
 
-        with st.status("処理中...", expanded=True) as status:
+        progress = st.progress(0, text="処理を開始しています...")
+        log = st.empty()
 
-            st.write("ファイルを読み込んでいます...")
-            if uploaded:
-                text = read_uploaded_file(uploaded)
-            else:
-                st.write("PR TIMESページを取得中...")
-                try:
-                    text = fetch_prtimes_text(prtimes_url)
-                except Exception as e:
-                    st.error(f"URLの取得に失敗しました: {e}")
-                    st.stop()
-            if not text:
+        log.info("ファイルを読み込んでいます...")
+        if uploaded:
+            text = read_uploaded_file(uploaded)
+        else:
+            log.info("PR TIMESページを取得中...")
+            try:
+                text = fetch_prtimes_text(prtimes_url)
+            except Exception as e:
+                st.error(f"URLの取得に失敗しました: {e}")
                 st.stop()
+        if not text:
+            st.stop()
+        progress.progress(10, text="プレスリリースを解析中...")
 
-            st.write("Claudeでプレスリリースを解析しています...")
-            info = analyze_press_release(text)
-            st.write(f"会社：{info.get('company')} / 製品：{info.get('product')}")
+        log.info("Claudeでプレスリリースを解析しています...")
+        info = analyze_press_release(text)
+        log.info(f"会社：{info.get('company')} / 製品：{info.get('product')}")
+        progress.progress(25, text="Web検索中...")
 
-            st.write(f"Web検索中（{len(info.get('search_queries', []))}クエリ）...")
-            # brand_keywords（固有名詞）を優先、なければ会社名・製品名を使用
-            brand_kw = info.get("brand_keywords", [])
-            if not brand_kw:
-                brand_kw = [info.get("company",""), info.get("product","")]
-            filter_keywords = [k for k in brand_kw if k and len(k) >= 2]
-            articles = search_articles(info.get("search_queries", []), filter_keywords)
-            st.write(f"{len(articles)} 件の記事を発見")
+        queries = info.get("search_queries", [])
+        brand_kw = info.get("brand_keywords", [])
+        if not brand_kw:
+            brand_kw = [info.get("company",""), info.get("product","")]
+        filter_keywords = [k for k in brand_kw if k and len(k) >= 2]
 
-            if articles:
-                st.write("記事を分類・判定しています...")
-                articles = score_articles(articles, info.get("summary", ""))
+        log.info(f"Web検索中（{len(queries)}クエリ）...")
+        articles = search_articles(queries, filter_keywords)
+        log.info(f"{len(articles)} 件の記事を発見")
+        progress.progress(55, text=f"{len(articles)}件を分類中...")
 
-            status.update(label="完了！", state="complete")
+        if articles:
+            target_count = len([a for a in articles if classify_article(a["url"]) == "通常"])
+            chunks_needed = max(1, (target_count + 29) // 30)
+            log.info(f"記事を分類・判定しています（{chunks_needed}回のAI判定）...")
+            articles = score_articles(articles, info.get("summary", ""))
+
+        progress.progress(100, text="完了！")
+        log.empty()
 
         primary   = [a for a in articles if a.get("article_class") == "1次記事"]
         secondary = [a for a in articles if a.get("article_class") == "2次記事"]
