@@ -45,7 +45,8 @@ nav {
 .nav-icon { width:32px; height:32px; border-radius:8px; border:1px solid var(--border2); background:var(--surface); display:grid; place-items:center; cursor:pointer; color:var(--muted); font-size:15px; }
 
 /* ── Layout ── */
-main { max-width:1080px; margin:0 auto; padding:28px 28px 60px; }
+main { max-width:1080px; margin:0 auto; padding:0 28px 60px; }
+.page-header { margin:0 -28px 20px; }
 
 /* ── Page header ── */
 .page-header { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:24px; }
@@ -227,8 +228,9 @@ main { max-width:1080px; margin:0 auto; padding:28px 28px 60px; }
 <main>
   <!-- Page header -->
   <div id="page-header" class="page-header">
-    <div style="text-align:center;width:100%;padding:32px 0 8px;">
-      <img src="/static/logo2.png" alt="Press Clipper" style="max-height:700px;max-width:90%;object-fit:contain;">
+    <div style="width:100%;margin-bottom:8px;">
+      <img src="/static/logo2.png" alt="Press Clipper"
+        style="width:100%;display:block;object-fit:cover;object-position:center;">
     </div>
   </div>
 
