@@ -326,16 +326,24 @@ main { max-width:1080px; margin:0 auto; padding:32px 28px 60px; }
     </div>
 
     <!-- Stats -->
+    <!-- WEB小計バー -->
+    <div class="card" style="padding:16px 20px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <i data-lucide="globe" style="width:16px;height:16px;color:var(--muted);"></i>
+        <span style="font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.5px;">WEB小計（①1次 ＋ ②2次）</span>
+      </div>
+      <div style="font-size:24px;font-weight:700;color:var(--text);" id="stat-web-total">0 <span style="font-size:13px;color:var(--muted);font-weight:400;">記事</span></div>
+    </div>
     <div class="stats-grid">
       <div class="card stat-card">
         <i data-lucide="pen-line" style="width:18px;height:18px;color:var(--accent);margin-bottom:8px;display:block;"></i>
         <div class="stat-val" style="color:var(--accent);" id="stat-primary">0</div>
-        <div class="stat-lbl"><span class="stat-dot" style="background:var(--accent);"></span>1次記事</div>
+        <div class="stat-lbl"><span class="stat-dot" style="background:var(--accent);"></span>①1次記事</div>
       </div>
       <div class="card stat-card">
         <i data-lucide="copy" style="width:18px;height:18px;color:var(--green);margin-bottom:8px;display:block;"></i>
         <div class="stat-val" style="color:var(--green);" id="stat-secondary">0</div>
-        <div class="stat-lbl"><span class="stat-dot" style="background:var(--green);"></span>2次記事</div>
+        <div class="stat-lbl"><span class="stat-dot" style="background:var(--green);"></span>②2次記事</div>
       </div>
       <div class="card stat-card">
         <i data-lucide="radio" style="width:18px;height:18px;color:var(--blue);margin-bottom:8px;display:block;"></i>
@@ -617,6 +625,8 @@ function renderResults(data) {
   document.getElementById('stat-secondary').textContent = data.stats.secondary;
   document.getElementById('stat-wire').textContent = data.stats.wire;
   document.getElementById('stat-sns').textContent = data.stats.sns;
+  const webTotal = (data.stats.primary || 0) + (data.stats.secondary || 0);
+  document.getElementById('stat-web-total').innerHTML = webTotal + ' <span style="font-size:13px;color:var(--muted);font-weight:400;">記事</span>';
 
   // Engine
   document.getElementById('engine-badge').textContent = `🔍 ${data.search_engine}`;
