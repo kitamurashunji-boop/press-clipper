@@ -431,8 +431,10 @@ async def analyze(
     if not text.strip():
         raise HTTPException(status_code=400, detail="テキストを抽出できませんでした")
 
-    # 2. Claude でプレスリリース解析
-    info = analyze_press_release(text)
+    import asyncio
+
+    # 2. Claude でプレスリリース解析（ブロッキングなのでスレッドで実行）
+    info = await asyncio.to_thread(analyze_press_release, text)
 
     # 3. 検索クエリ構築
     queries = info.get("search_queries", [])
@@ -441,18 +443,15 @@ async def analyze(
     product = info.get("product", "")
 
     if press_title and len(press_title) > 10:
-        # タイトル全文をそのまま検索（2次記事が転載する際に使うため）
         full_quoted = f'"{press_title}"'
         if full_quoted not in queries:
             queries.insert(0, full_quoted)
-        # 前半部分も追加（記事によって見出しが途中までのことがある）
         if len(press_title) > 30:
             half = press_title[:len(press_title)//2].rstrip('　 ')
             half_quoted = f'"{half}"'
             if half_quoted not in queries:
                 queries.insert(1, half_quoted)
 
-    # フォールバック: クエリが少ない場合は会社名・製品名から生成
     if len(queries) < 3 and (company or product):
         base = f"{company} {product}".strip()
         for suffix in ["", "レビュー", "掲載", "紹介"]:
@@ -463,12 +462,12 @@ async def analyze(
     brand_kw = info.get("brand_keywords", []) or [company, product]
     filter_keywords = [k for k in brand_kw if k and len(k) >= 2]
 
-    # 4. 検索
-    articles, search_engine = search_articles(queries, filter_keywords)
+    # 4. 検索（ブロッキングなのでスレッドで実行）
+    articles, search_engine = await asyncio.to_thread(search_articles, queries, filter_keywords)
 
-    # 5. 分類
+    # 5. 分類（ブロッキングなのでスレッドで実行）
     if articles:
-        articles = score_articles(articles, info.get("summary", ""))
+        articles = await asyncio.to_thread(score_articles, articles, info.get("summary", ""))
 
     # 6. レポート生成
     html_report = generate_html_report(info, articles, source_name)
