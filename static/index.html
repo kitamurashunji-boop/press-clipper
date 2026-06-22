@@ -109,16 +109,16 @@ main { max-width:1080px; margin:0 auto; padding:32px 28px 60px; }
 
 /* ── Progress ── */
 .progress-card { padding:32px; margin-bottom:20px; display:none; }
-.progress-header { display:flex; align-items:center; gap:16px; margin-bottom:28px; line-height:1; }
+.progress-layout { display:flex; align-items:center; gap:40px; }
+.progress-left { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; min-width:180px; flex-shrink:0; }
 .progress-spinner {
-  width:28px; height:28px; border-radius:50%; flex-shrink:0;
-  border:3px solid var(--border2);
+  width:52px; height:52px; border-radius:50%;
+  border:4px solid var(--border2);
   border-top-color:var(--accent);
   animation:spin .9s linear infinite;
-  align-self:center;
 }
-.progress-title { font-size:20px; font-weight:700; color:var(--text); letter-spacing:.5px; margin:0; align-self:center; line-height:1; }
-.progress-steps { display:flex; flex-direction:column; gap:12px; text-align:left; max-width:360px; margin:0 auto; }
+.progress-title { font-size:16px; font-weight:700; color:var(--text); letter-spacing:.5px; margin:0; text-align:center; line-height:1.4; }
+.progress-steps { display:flex; flex-direction:column; gap:12px; flex:1; }
 .step { display:flex; align-items:center; gap:14px; }
 .step-dot { width:10px; height:10px; border-radius:50%; background:var(--muted2); flex-shrink:0; transition:background .3s; }
 .step-dot.done { background:var(--accent); }
@@ -295,18 +295,20 @@ main { max-width:1080px; margin:0 auto; padding:32px 28px 60px; }
 
   <!-- Progress card -->
   <div class="card progress-card" id="progress-card">
-    <div class="progress-header">
-      <div class="progress-spinner"></div>
-      <div class="progress-title">解析・検索中...</div>
-    </div>
-    <div class="progress-steps">
+    <div class="progress-layout">
+      <div class="progress-left">
+        <div class="progress-spinner"></div>
+        <div class="progress-title">解析・検索中...</div>
+      </div>
+      <div class="progress-steps">
       <div class="step"><div class="step-dot" id="dot-0"></div><div class="step-text" id="text-0">プレスリリースを読み込み中</div></div>
       <div class="step"><div class="step-dot" id="dot-1"></div><div class="step-text" id="text-1">Claudeで内容を解析中</div></div>
       <div class="step"><div class="step-dot" id="dot-2"></div><div class="step-text" id="text-2">Web検索で掲載記事を収集中</div></div>
       <div class="step"><div class="step-dot" id="dot-3"></div><div class="step-text" id="text-3">AIで記事を分類・判定中</div></div>
       <div class="step"><div class="step-dot" id="dot-4"></div><div class="step-text" id="text-4">レポートを生成中</div></div>
+      <div class="progress-bar-wrap" style="margin-top:16px;"><div class="progress-bar-fill" id="progress-bar"></div></div>
+      </div>
     </div>
-    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar"></div></div>
   </div>
 
   <!-- Results (always visible) -->
