@@ -194,7 +194,10 @@ def _search_google(queries: list, keywords: list) -> list:
     return results
 
 def _search_ddg(queries: list, keywords: list) -> list:
-    from duckduckgo_search import DDGS
+    try:
+        from ddgs import DDGS
+    except ImportError:
+        from duckduckgo_search import DDGS
     seen_urls = set()
     results = []
     kw_lower = [k.lower() for k in keywords if len(k) >= 2]
