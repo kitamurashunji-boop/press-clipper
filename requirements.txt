@@ -1,0 +1,5 @@
+streamlit
+anthropic
+duckduckgo-search
+pypdf
+python-docx
