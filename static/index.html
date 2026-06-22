@@ -106,12 +106,13 @@ main { max-width:1080px; margin:0 auto; padding:32px 28px 60px; }
 
 /* ── Progress ── */
 .progress-card { padding:32px; margin-bottom:20px; display:none; }
-.progress-header { display:flex; align-items:center; gap:16px; margin-bottom:28px; }
+.progress-header { display:flex; align-items:center; gap:16px; margin-bottom:28px; line-height:1; }
 .progress-spinner {
-  width:36px; height:36px; border-radius:50%; flex-shrink:0;
+  width:28px; height:28px; border-radius:50%; flex-shrink:0;
   border:3px solid var(--border2);
   border-top-color:var(--accent);
   animation:spin .9s linear infinite;
+  display:block;
 }
 .progress-title { font-size:20px; font-weight:700; color:var(--text); letter-spacing:.5px; margin:0; }
 .progress-steps { display:flex; flex-direction:column; gap:12px; text-align:left; max-width:360px; margin:0 auto; }
