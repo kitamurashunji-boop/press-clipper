@@ -9,6 +9,16 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 
 
+# メディアリスト読み込み（domain -> media_name）
+_MEDIA_LIST_PATH = Path(__file__).parent / "media_list.json"
+MEDIA_DOMAIN_MAP: dict[str, str] = {}
+if _MEDIA_LIST_PATH.exists():
+    try:
+        _raw = json.loads(_MEDIA_LIST_PATH.read_text(encoding="utf-8"))
+        MEDIA_DOMAIN_MAP = {item["domain"]: item["name"] for item in _raw if item.get("domain") and item.get("name")}
+    except Exception:
+        pass
+
 # ワイヤーサービスのドメイン一覧
 WIRE_DOMAINS = [
     "prtimes.jp", "atpress.ne.jp", "kyodonewsprwire.jp",
@@ -67,8 +77,14 @@ def read_uploaded_file(uploaded_file) -> str:
 
 # --- Claude API ---
 
+def _secret(key: str, default: str = "") -> str:
+    try:
+        return st.secrets.get(key) or os.environ.get(key, default)
+    except Exception:
+        return os.environ.get(key, default)
+
 def get_client():
-    api_key = st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    api_key = _secret("ANTHROPIC_API_KEY")
     if not api_key:
         st.error("ANTHROPIC_API_KEY が設定されていません。")
         st.stop()
@@ -129,8 +145,8 @@ search_queriesは12〜15個生成してください。以下の3種類を必ず�
         return {"company": "不明", "product": "不明", "summary": raw[:300], "release_date": "", "keywords": [], "search_queries": []}
 
 def search_articles(queries: list, keywords: list) -> list:
-    api_key = st.secrets.get("GOOGLE_API_KEY", "")
-    cx = st.secrets.get("GOOGLE_CX", "")
+    api_key = _secret("GOOGLE_API_KEY")
+    cx = _secret("GOOGLE_CX")
     seen_urls = set()
     results = []
 
@@ -179,12 +195,16 @@ def classify_article(url: str) -> str:
         return "ワイヤー"
     if any(x in domain for x in ["twitter.com", "x.com", "instagram.com", "facebook.com", "youtube.com", "line.me", "smartnews.com"]):
         return "SNS"
+    # 既知メディアリストに含まれるドメインは除外しない
+    if domain in MEDIA_DOMAIN_MAP:
+        return "通常"
     if any(x in url.lower() for x in EXCLUDE_KEYWORDS):
         return "除外"
     return "通常"
 
 def get_domain(url: str) -> str:
-    return re.sub(r'https?://(?:www\.)?([^/]+).*', r'\1', url)
+    domain = re.sub(r'https?://(?:www\.)?([^/]+).*', r'\1', url)
+    return MEDIA_DOMAIN_MAP.get(domain, domain)
 
 def score_articles(articles: list, summary: str) -> list:
     client = get_client()
