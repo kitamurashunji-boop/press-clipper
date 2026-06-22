@@ -413,6 +413,8 @@ async def analyze(
     file: UploadFile = File(None),
     url: str = Form(None),
 ):
+    import asyncio
+
     # 1. テキスト取得
     source_name = ""
     if file and file.filename:
@@ -421,7 +423,7 @@ async def analyze(
         source_name = file.filename
     elif url and url.startswith("http"):
         try:
-            text = fetch_prtimes_text(url)
+            text = await asyncio.to_thread(fetch_prtimes_text, url)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"URLの取得に失敗: {e}")
         source_name = url
@@ -431,9 +433,7 @@ async def analyze(
     if not text.strip():
         raise HTTPException(status_code=400, detail="テキストを抽出できませんでした")
 
-    import asyncio
-
-    # 2. Claude でプレスリリース解析（ブロッキングなのでスレッドで実行）
+    # 2. Claude でプレスリリース解析
     info = await asyncio.to_thread(analyze_press_release, text)
 
     # 3. 検索クエリ構築
@@ -462,10 +462,10 @@ async def analyze(
     brand_kw = info.get("brand_keywords", []) or [company, product]
     filter_keywords = [k for k in brand_kw if k and len(k) >= 2]
 
-    # 4. 検索（ブロッキングなのでスレッドで実行）
+    # 4. 検索
     articles, search_engine = await asyncio.to_thread(search_articles, queries, filter_keywords)
 
-    # 5. 分類（ブロッキングなのでスレッドで実行）
+    # 5. 分類
     if articles:
         articles = await asyncio.to_thread(score_articles, articles, info.get("summary", ""))
 
