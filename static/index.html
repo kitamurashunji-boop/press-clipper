@@ -121,11 +121,13 @@ main { max-width:1080px; margin:0 auto; padding:32px 28px 60px; }
 .progress-steps { display:flex; flex-direction:column; gap:12px; flex:1; }
 .step { display:flex; align-items:center; gap:14px; }
 .step-dot { width:10px; height:10px; border-radius:50%; background:var(--muted2); flex-shrink:0; transition:background .3s; }
+.step-dot { position:relative; }
 .step-dot.done { background:var(--accent); }
+.step-dot.done::after { content:'✓'; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:8px; color:#0d0e14; font-weight:700; line-height:1; }
 .step-dot.active { background:var(--accent); box-shadow:0 0 0 4px var(--accent-dim); animation:pulse 1s infinite; }
 .step-text { font-size:14px; color:var(--muted); transition:color .3s; }
 .step-text.active { color:var(--text); font-weight:600; }
-.step-text.done { color:var(--muted); text-decoration:line-through; }
+.step-text.done { color:var(--muted); }
 .progress-bar-wrap { margin-top:24px; background:var(--bg); border-radius:4px; height:6px; overflow:hidden; max-width:360px; margin-left:auto; margin-right:auto; }
 .progress-bar-fill { height:100%; background:var(--accent); border-radius:4px; transition:width .6s ease; width:0%; box-shadow:0 0 8px var(--accent); }
 @keyframes spin { to{transform:rotate(360deg)} }
