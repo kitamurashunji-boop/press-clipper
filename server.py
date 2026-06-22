@@ -105,7 +105,8 @@ def analyze_press_release(text: str) -> dict:
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=4096,
+        max_tokens=2048,
+        timeout=30,
         messages=[{"role": "user", "content": prompt}]
     )
     raw = message.content[0].text.strip()
@@ -209,11 +210,13 @@ def _search_brave(queries, keywords):
     if not api_key:
         return []
 
+    top_queries = queries[:8]
+
     def fetch_one(query):
         try:
             resp = requests.get("https://api.search.brave.com/res/v1/web/search",
                 headers={"Accept": "application/json", "X-Subscription-Token": api_key},
-                params={"q": query, "count": 10, "search_lang": "ja", "country": "jp"}, timeout=10)
+                params={"q": query, "count": 10, "search_lang": "ja", "country": "jp"}, timeout=8)
             if resp.status_code != 200:
                 return []
             return [{"title": item.get("title", ""), "url": item.get("url", ""),
@@ -223,12 +226,16 @@ def _search_brave(queries, keywords):
             return []
 
     seen, results = set(), []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as ex:
-        for items in ex.map(fetch_one, queries):
-            for item in items:
-                if item["url"] not in seen:
-                    seen.add(item["url"])
-                    results.append(item)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+        futures = {ex.submit(fetch_one, q): q for q in top_queries}
+        for f in concurrent.futures.as_completed(futures, timeout=20):
+            try:
+                for item in f.result():
+                    if item["url"] not in seen:
+                        seen.add(item["url"])
+                        results.append(item)
+            except Exception:
+                pass
     return results
 
 def search_articles(queries, keywords):
