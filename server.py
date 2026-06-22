@@ -103,13 +103,21 @@ search_queriesは12〜15個。1次記事用5〜6個（ブランド名＋レビ�
         messages=[{"role": "user", "content": prompt}]
     )
     raw = message.content[0].text.strip()
-    # Strip markdown code fences if present
-    raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.MULTILINE)
-    raw = re.sub(r'```\s*$', '', raw, flags=re.MULTILINE)
-    raw = raw.strip()
+    # Try multiple parsing strategies
+    for attempt in [raw,
+                    re.sub(r'```(?:json)?\s*', '', raw).strip(),
+                    (re.search(r'\{[\s\S]*\}', raw) or type('', (), {'group': lambda s: None})()).group()]:
+        if not attempt:
+            continue
+        try:
+            return json.loads(attempt)
+        except Exception:
+            pass
+    # Last resort: extract JSON object manually
     try:
-        match = re.search(r'\{[\s\S]*\}', raw)
-        return json.loads(match.group() if match else raw)
+        start = raw.index('{')
+        end = raw.rindex('}') + 1
+        return json.loads(raw[start:end])
     except Exception:
         return {"company": "不明", "product": "不明", "summary": raw[:300], "release_date": "", "keywords": [], "search_queries": [], "brand_keywords": []}
 
@@ -150,6 +158,19 @@ def _search_google(queries, keywords):
                 break
     return results
 
+def _extract_date(text: str) -> str:
+    """スニペットや本文から日付を抽出する"""
+    patterns = [
+        r'(\d{4})[年/\-](\d{1,2})[月/\-](\d{1,2})',  # 2024年3月5日 / 2024/3/5 / 2024-3-5
+        r'(\d{4})\.(\d{1,2})\.(\d{1,2})',              # 2024.3.5
+    ]
+    for p in patterns:
+        m = re.search(p, text)
+        if m:
+            y, mo, d = m.group(1), m.group(2).zfill(2), m.group(3).zfill(2)
+            return f"{y}-{mo}-{d}"
+    return ""
+
 def _search_ddg(queries, keywords):
     try:
         from ddgs import DDGS
@@ -162,8 +183,9 @@ def _search_ddg(queries, keywords):
                 url = h.get("href", "")
                 if not url or url in seen:
                     continue
+                snippet = h.get("body", "")
                 seen.add(url)
-                results.append({"title": h.get("title", ""), "url": url, "snippet": h.get("body", ""), "query": query, "date": ""})
+                results.append({"title": h.get("title", ""), "url": url, "snippet": snippet, "query": query, "date": _extract_date(snippet)})
         except Exception:
             continue
     return results
