@@ -221,7 +221,34 @@ def _search_ddg(queries: list, keywords: list) -> list:
         st.warning(f"DuckDuckGo エラー: {errors[0]}")
     return results
 
+def _search_brave(queries: list, keywords: list) -> list:
+    api_key = _secret("BRAVE_API_KEY")
+    if not api_key:
+        return []
+    seen_urls = set()
+    results = []
+    for query in queries:
+        try:
+            resp = requests.get(
+                "https://api.search.brave.com/res/v1/web/search",
+                headers={"Accept": "application/json", "Accept-Encoding": "gzip", "X-Subscription-Token": api_key},
+                params={"q": query, "count": 10, "search_lang": "ja"},
+                timeout=10
+            )
+            if resp.status_code != 200:
+                continue
+            for item in resp.json().get("web", {}).get("results", []):
+                url = item.get("url", "")
+                if not url or url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                results.append({"title": item.get("title", ""), "url": url, "snippet": item.get("description", ""), "query": query, "date": ""})
+        except Exception:
+            continue
+    return results
+
 def search_articles(queries: list, keywords: list) -> list:
+    # 1. Google
     try:
         results = _search_google(queries, keywords)
         if results:
@@ -229,8 +256,20 @@ def search_articles(queries: list, keywords: list) -> list:
             return results
         raise RuntimeError("Google: 結果なし")
     except Exception as e:
-        st.caption(f"⚠️ Google検索が利用できないためDuckDuckGoで代替検索します（{e}）")
-        return _search_ddg(queries, keywords)
+        pass
+
+    # 2. Brave Search
+    try:
+        results = _search_brave(queries, keywords)
+        if results:
+            st.caption("🔍 Brave Search で検索しました")
+            return results
+    except Exception:
+        pass
+
+    # 3. DuckDuckGo（フォールバック）
+    st.caption("⚠️ Google/Brave が利用できないためDuckDuckGoで代替検索します")
+    return _search_ddg(queries, keywords)
 
 def classify_article(url: str) -> str:
     """ワイヤーサービス / SNS / 除外 / 通常 を判定"""
