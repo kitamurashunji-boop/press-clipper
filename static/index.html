@@ -288,17 +288,17 @@ main { max-width:1080px; margin:0 auto; padding:28px 28px 60px; }
     <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar"></div></div>
   </div>
 
-  <!-- Results (hidden until done) -->
-  <div id="results" style="display:none;">
+  <!-- Results (always visible) -->
+  <div id="results">
 
     <!-- Summary card -->
     <div class="card summary-card" id="summary-card">
       <div class="summary-header">
-        <div class="summary-field"><label>会社名</label><span id="res-company"></span></div>
-        <div class="summary-field"><label>製品・サービス</label><span id="res-product"></span></div>
-        <div class="summary-field"><label>発表日</label><span id="res-date"></span></div>
+        <div class="summary-field"><label>会社名</label><span id="res-company">—</span></div>
+        <div class="summary-field"><label>製品・サービス</label><span id="res-product">—</span></div>
+        <div class="summary-field"><label>発表日</label><span id="res-date">—</span></div>
       </div>
-      <div class="summary-text" id="res-summary"></div>
+      <div class="summary-text" id="res-summary" style="color:var(--muted2);">解析結果がここに表示されます</div>
       <div class="kw-pills" id="res-keywords"></div>
     </div>
 
@@ -331,7 +331,7 @@ main { max-width:1080px; margin:0 auto; padding:28px 28px 60px; }
         <div class="results-actions">
           <span class="engine-badge" id="engine-badge"></span>
           <span class="results-count" id="results-count"></span>
-          <button class="btn-download" id="download-btn" onclick="downloadReport()">レポートをダウンロード</button>
+          <button class="btn-download" id="download-btn" onclick="downloadReport()" style="display:none;">レポートをダウンロード</button>
         </div>
       </div>
 
@@ -385,25 +385,15 @@ let clipState = 'input'; // 'input' | 'progress' | 'results'
 
 function showPage(page) {
   const isClip = page === 'clip';
-
-  document.getElementById('page-history').style.display = isClip ? 'none' : 'block';
-  document.getElementById('page-header').style.display  = isClip ? ''      : 'none';
-  document.getElementById('error-box').style.display    = 'none';
-
-  if (isClip) {
-    // 現在のセッション状態を復元
-    document.getElementById('input-card').style.display    = clipState === 'input'    ? '' : 'none';
-    document.getElementById('progress-card').style.display = clipState === 'progress' ? '' : 'none';
-    document.getElementById('results').style.display       = clipState === 'results'  ? '' : 'none';
-  } else {
-    document.getElementById('input-card').style.display    = 'none';
-    document.getElementById('progress-card').style.display = 'none';
-    document.getElementById('results').style.display       = 'none';
-    renderHistory();
-  }
-
+  document.getElementById('page-history').style.display  = isClip ? 'none' : 'block';
+  document.getElementById('page-header').style.display   = isClip ? ''     : 'none';
+  document.getElementById('error-box').style.display     = 'none';
+  document.getElementById('input-card').style.display    = isClip ? (clipState === 'progress' ? 'none' : '') : 'none';
+  document.getElementById('progress-card').style.display = isClip && clipState === 'progress' ? '' : 'none';
+  document.getElementById('results').style.display       = isClip ? '' : 'none';
   document.querySelectorAll('.nav-pill').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-pill')[isClip ? 0 : 1].classList.add('active');
+  if (!isClip) renderHistory();
 }
 
 function switchTab(tab) {
@@ -543,7 +533,6 @@ async function startAnalysis() {
   clipState = 'progress';
   document.getElementById('input-card').style.display = 'none';
   document.getElementById('progress-card').style.display = 'block';
-  document.getElementById('results').style.display = 'none';
 
   setProgress(0, 10);
   await delay(400);
@@ -577,7 +566,7 @@ async function startAnalysis() {
   } catch (e) {
     clipState = 'input';
     document.getElementById('progress-card').style.display = 'none';
-    document.getElementById('input-card').style.display = 'block';
+    document.getElementById('input-card').style.display = '';
     showError('エラー: ' + e.message);
   }
 }
@@ -585,7 +574,8 @@ async function startAnalysis() {
 function renderResults(data) {
   clipState = 'results';
   document.getElementById('progress-card').style.display = 'none';
-  document.getElementById('results').style.display = 'block';
+  document.getElementById('input-card').style.display = '';
+  document.getElementById('download-btn').style.display = '';
 
   // Summary
   document.getElementById('res-company').textContent = data.info.company || '—';
