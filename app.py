@@ -27,7 +27,7 @@ def fetch_prtimes_text(url: str) -> str:
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 
-    for sel in ["div.articleBody", "div.press-release-detail", "article", "div#main", "div.content"]:
+    for sel in ["div#press-release-body", "div.press-release-body-v3-0-0", "div.articleBody", "article", "div.content"]:
         el = soup.select_one(sel)
         if el:
             return el.get_text(separator="\n", strip=True)
