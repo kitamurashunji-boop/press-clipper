@@ -405,9 +405,9 @@ if source_name:
             st.write(f"会社：{info.get('company')} / 製品：{info.get('product')}")
 
             st.write(f"Web検索中（{len(info.get('search_queries', []))}クエリ）...")
-            # 会社名・製品名・キーワードをフィルタ用に渡す
-            filter_keywords = ([info.get("company",""), info.get("product","")] + info.get("keywords", []))
-            filter_keywords = [k for k in filter_keywords if k]
+            # 会社名・製品名のみをフィルタ用に使う（「ハンディファン」等の一般語は除外）
+            filter_keywords = [info.get("company",""), info.get("product","")]
+            filter_keywords = [k for k in filter_keywords if k and len(k) >= 3]
             articles = search_articles(info.get("search_queries", []), filter_keywords)
             st.write(f"{len(articles)} 件の記事を発見")
 
