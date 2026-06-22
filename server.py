@@ -409,21 +409,19 @@ async def root():
     return HTMLResponse(html_path.read_text(encoding="utf-8"))
 
 @app.post("/api/analyze")
-async def analyze(
+def analyze(
     file: UploadFile = File(None),
     url: str = Form(None),
 ):
-    import asyncio
-
     # 1. テキスト取得
     source_name = ""
     if file and file.filename:
-        data = await file.read()
+        data = file.file.read()
         text = read_file_bytes(file.filename, data)
         source_name = file.filename
     elif url and url.startswith("http"):
         try:
-            text = await asyncio.to_thread(fetch_prtimes_text, url)
+            text = fetch_prtimes_text(url)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"URLの取得に失敗: {e}")
         source_name = url
@@ -434,7 +432,7 @@ async def analyze(
         raise HTTPException(status_code=400, detail="テキストを抽出できませんでした")
 
     # 2. Claude でプレスリリース解析
-    info = await asyncio.to_thread(analyze_press_release, text)
+    info = analyze_press_release(text)
 
     # 3. 検索クエリ構築
     queries = info.get("search_queries", [])
@@ -463,11 +461,11 @@ async def analyze(
     filter_keywords = [k for k in brand_kw if k and len(k) >= 2]
 
     # 4. 検索
-    articles, search_engine = await asyncio.to_thread(search_articles, queries, filter_keywords)
+    articles, search_engine = search_articles(queries, filter_keywords)
 
     # 5. 分類
     if articles:
-        articles = await asyncio.to_thread(score_articles, articles, info.get("summary", ""))
+        articles = score_articles(articles, info.get("summary", ""))
 
     # 6. レポート生成
     html_report = generate_html_report(info, articles, source_name)
