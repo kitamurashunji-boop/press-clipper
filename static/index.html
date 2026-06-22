@@ -7,6 +7,7 @@
 <title>Press Clipper</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -235,8 +236,8 @@ main { max-width:1080px; margin:0 auto; padding:32px 28px 60px; }
     <img src="/static/AUR_LOGO.png" alt="AUR" style="height:58px;object-fit:contain;">
   </a>
   <div class="nav-pills">
-    <div class="nav-pill active" onclick="showPage('clip')">クリッピング</div>
-    <div class="nav-pill" onclick="showPage('history')">レポート履歴</div>
+    <div class="nav-pill active" onclick="showPage('clip')"><i data-lucide="scissors" style="width:13px;height:13px;vertical-align:-2px;margin-right:5px;"></i>クリッピング</div>
+    <div class="nav-pill" onclick="showPage('history')"><i data-lucide="clock" style="width:13px;height:13px;vertical-align:-2px;margin-right:5px;"></i>レポート履歴</div>
   </div>
   <div class="nav-right">
     <div class="nav-icon">⚙</div>
@@ -260,8 +261,8 @@ main { max-width:1080px; margin:0 auto; padding:32px 28px 60px; }
     <div class="input-label">プレスリリースを入力</div>
 
     <div class="tab-bar">
-      <button class="tab-btn active" onclick="switchTab('url')">🔗 PR TIMESのURL</button>
-      <button class="tab-btn" onclick="switchTab('file')">📎 ファイルをアップロード</button>
+      <button class="tab-btn active" onclick="switchTab('url')"><i data-lucide="link" style="width:13px;height:13px;vertical-align:-2px;margin-right:5px;"></i>PR TIMESのURL</button>
+      <button class="tab-btn" onclick="switchTab('file')"><i data-lucide="paperclip" style="width:13px;height:13px;vertical-align:-2px;margin-right:5px;"></i>ファイルをアップロード</button>
     </div>
 
     <!-- URL section -->
@@ -328,18 +329,22 @@ main { max-width:1080px; margin:0 auto; padding:32px 28px 60px; }
     <!-- Stats -->
     <div class="stats-grid">
       <div class="card stat-card">
+        <i data-lucide="pen-line" style="width:18px;height:18px;color:var(--accent);margin-bottom:8px;display:block;"></i>
         <div class="stat-val" style="color:var(--accent);" id="stat-primary">0</div>
         <div class="stat-lbl"><span class="stat-dot" style="background:var(--accent);"></span>1次記事</div>
       </div>
       <div class="card stat-card">
+        <i data-lucide="copy" style="width:18px;height:18px;color:var(--green);margin-bottom:8px;display:block;"></i>
         <div class="stat-val" style="color:var(--green);" id="stat-secondary">0</div>
         <div class="stat-lbl"><span class="stat-dot" style="background:var(--green);"></span>2次記事</div>
       </div>
       <div class="card stat-card">
+        <i data-lucide="radio" style="width:18px;height:18px;color:var(--blue);margin-bottom:8px;display:block;"></i>
         <div class="stat-val" style="color:var(--blue);" id="stat-wire">0</div>
         <div class="stat-lbl"><span class="stat-dot" style="background:var(--blue);"></span>ワイヤー</div>
       </div>
       <div class="card stat-card">
+        <i data-lucide="share-2" style="width:18px;height:18px;color:var(--orange);margin-bottom:8px;display:block;"></i>
         <div class="stat-val" style="color:var(--orange);" id="stat-sns">0</div>
         <div class="stat-lbl"><span class="stat-dot" style="background:var(--orange);"></span>SNS</div>
       </div>
@@ -689,5 +694,6 @@ function hideError() { document.getElementById('error-box').style.display = 'non
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 </script>
+<script>lucide.createIcons();</script>
 </body>
 </html>
