@@ -172,21 +172,28 @@ def _extract_date(text: str) -> str:
     return ""
 
 def _search_ddg(queries, keywords):
+    import time
     try:
         from ddgs import DDGS
     except ImportError:
         from duckduckgo_search import DDGS
     seen, results = set(), []
-    for query in queries:
+    # クエリを最大8本に絞りレート制限を回避
+    for i, query in enumerate(queries[:8]):
         try:
-            for h in DDGS().text(query, max_results=10):
+            ddgs = DDGS()
+            hits = ddgs.text(query, max_results=15)
+            for h in hits:
                 url = h.get("href", "")
                 if not url or url in seen:
                     continue
                 snippet = h.get("body", "")
                 seen.add(url)
                 results.append({"title": h.get("title", ""), "url": url, "snippet": snippet, "query": query, "date": _extract_date(snippet)})
+            if i < len(queries) - 1:
+                time.sleep(1.5)
         except Exception:
+            time.sleep(2)
             continue
     return results
 
