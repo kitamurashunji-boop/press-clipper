@@ -27,6 +27,17 @@ WIRE_DOMAINS = ["prtimes.jp", "atpress.ne.jp", "kyodonewsprwire.jp", "digitalpr.
 EXCLUDE_KEYWORDS = ["ameblo.jp", "note.com", "qiita.com", "hatena", "cosme.net", "lips.beauty", "rakuten.co.jp/blog"]
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+def _load_env_bat():
+    bat = Path(__file__).parent / "env.bat"
+    if not bat.exists():
+        return
+    for line in bat.read_text(encoding="utf-8", errors="ignore").splitlines():
+        m = re.match(r'set\s+([^=]+)=(.+)', line, re.IGNORECASE)
+        if m:
+            os.environ.setdefault(m.group(1).strip(), m.group(2).strip())
+
+_load_env_bat()
+
 def _secret(key: str) -> str:
     return os.environ.get(key, "")
 
@@ -88,10 +99,14 @@ search_queriesは12〜15個。1次記事用5〜6個（ブランド名＋レビ�
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=2048,
+        max_tokens=4096,
         messages=[{"role": "user", "content": prompt}]
     )
     raw = message.content[0].text.strip()
+    # Strip markdown code fences if present
+    raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.MULTILINE)
+    raw = re.sub(r'```\s*$', '', raw, flags=re.MULTILINE)
+    raw = raw.strip()
     try:
         match = re.search(r'\{[\s\S]*\}', raw)
         return json.loads(match.group() if match else raw)
@@ -126,8 +141,6 @@ def _search_google(queries, keywords):
                         continue
                     title = item.get("title", "")
                     snippet = item.get("snippet", "")
-                    if kw_lower and not any(k in (title + snippet).lower() for k in kw_lower):
-                        continue
                     seen.add(url)
                     results.append({"title": title, "url": url, "snippet": snippet, "query": query,
                         "date": item.get("pagemap", {}).get("metatags", [{}])[0].get("article:published_time", "")})
@@ -390,12 +403,23 @@ async def analyze(
     # 3. 検索クエリ構築
     queries = info.get("search_queries", [])
     press_title = info.get("press_title", "")
+    company = info.get("company", "")
+    product = info.get("product", "")
+
     if press_title and len(press_title) > 10:
         quoted = f'"{press_title[:40]}"'
         if quoted not in queries:
             queries.append(quoted)
 
-    brand_kw = info.get("brand_keywords", []) or [info.get("company", ""), info.get("product", "")]
+    # フォールバック: クエリが少ない場合は会社名・製品名から生成
+    if len(queries) < 3 and (company or product):
+        base = f"{company} {product}".strip()
+        for suffix in ["", "レビュー", "掲載", "紹介"]:
+            q = f"{base} {suffix}".strip()
+            if q not in queries:
+                queries.append(q)
+
+    brand_kw = info.get("brand_keywords", []) or [company, product]
     filter_keywords = [k for k in brand_kw if k and len(k) >= 2]
 
     # 4. 検索
