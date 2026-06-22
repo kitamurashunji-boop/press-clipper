@@ -1,7 +1,9 @@
-streamlit
+fastapi
+uvicorn[standard]
 anthropic
 ddgs
 pypdf
 python-docx
 requests
 beautifulsoup4
+python-multipart

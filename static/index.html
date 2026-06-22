@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Press Clipper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #0d0e14;
+  --surface:  #13141c;
+  --border:   #1e2030;
+  --border2:  #262840;
+  --text:     #e4e6f0;
+  --muted:    #5a5d78;
+  --muted2:   #3a3d55;
+  --accent:   #c5f135;
+  --accent-dim: rgba(197,241,53,0.12);
+  --green:    #34d399;
+  --blue:     #818cf8;
+  --orange:   #fb923c;
+  --r:        14px;
+  --r-sm:     8px;
+}
+body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; line-height:1.5; }
+
+/* ── Nav ── */
+nav {
+  height:56px; display:flex; align-items:center; justify-content:space-between;
+  padding:0 28px; background:var(--surface); border-bottom:1px solid var(--border);
+  position:sticky; top:0; z-index:100;
+}
+.nav-logo { display:flex; align-items:center; gap:10px; text-decoration:none; }
+.nav-logo-mark {
+  width:30px; height:30px; background:var(--accent); border-radius:7px;
+  display:grid; place-items:center; font-weight:800; font-size:15px; color:#0d0e14; flex-shrink:0;
+}
+.nav-logo-text { font-weight:700; font-size:15px; color:var(--text); letter-spacing:-0.3px; }
+.nav-pills { display:flex; gap:2px; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:4px; }
+.nav-pill { padding:5px 14px; border-radius:7px; font-size:12px; font-weight:500; color:var(--muted); cursor:pointer; user-select:none; transition:all .15s; }
+.nav-pill.active { background:var(--surface); color:var(--text); }
+.nav-right { display:flex; align-items:center; gap:8px; }
+.nav-icon { width:32px; height:32px; border-radius:8px; border:1px solid var(--border2); background:var(--surface); display:grid; place-items:center; cursor:pointer; color:var(--muted); font-size:15px; }
+
+/* ── Layout ── */
+main { max-width:1080px; margin:0 auto; padding:28px 28px 60px; }
+
+/* ── Page header ── */
+.page-header { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:24px; }
+.page-eyebrow { font-size:11px; color:var(--muted); letter-spacing:1.5px; font-weight:600; text-transform:uppercase; margin-bottom:5px; }
+.page-title { font-size:26px; font-weight:700; color:var(--text); letter-spacing:-0.5px; }
+
+/* ── Card ── */
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); }
+
+/* ── Input area ── */
+.input-card { padding:24px; margin-bottom:20px; }
+.input-label { font-size:12px; font-weight:600; color:var(--muted); letter-spacing:0.5px; text-transform:uppercase; margin-bottom:10px; }
+
+/* Tab switcher */
+.tab-bar { display:flex; gap:2px; background:var(--bg); border:1px solid var(--border); border-radius:9px; padding:4px; width:fit-content; margin-bottom:16px; }
+.tab-btn { padding:7px 18px; border-radius:6px; font-size:13px; font-weight:500; color:var(--muted); cursor:pointer; border:none; background:none; transition:all .15s; }
+.tab-btn.active { background:var(--border2); color:var(--text); }
+
+/* Input field */
+.input-row { display:flex; gap:10px; }
+.input-field {
+  flex:1; background:var(--bg); border:1px solid var(--border); border-radius:10px;
+  color:var(--text); font-size:14px; font-family:inherit; padding:11px 16px;
+  outline:none; transition:border-color .15s;
+}
+.input-field:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(197,241,53,0.08); }
+.input-field::placeholder { color:var(--muted2); }
+.btn-primary {
+  background:var(--accent); color:#0d0e14; border:none; border-radius:10px;
+  font-size:13px; font-weight:700; font-family:inherit; padding:11px 22px;
+  cursor:pointer; white-space:nowrap; transition:opacity .15s; letter-spacing:0.2px;
+}
+.btn-primary:hover { opacity:0.88; }
+.btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
+
+/* File drop zone */
+.dropzone {
+  border:1.5px dashed var(--border2); border-radius:10px; padding:28px;
+  text-align:center; cursor:pointer; transition:all .15s; position:relative;
+}
+.dropzone:hover, .dropzone.dragover { border-color:var(--accent); background:var(--accent-dim); }
+.dropzone input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+.dropzone-icon { font-size:28px; margin-bottom:8px; }
+.dropzone-text { font-size:13px; color:var(--muted); }
+.dropzone-text b { color:var(--text); }
+.dropzone-sub { font-size:11px; color:var(--muted2); margin-top:4px; }
+.file-selected { display:flex; align-items:center; gap:10px; background:var(--accent-dim); border:1px solid rgba(197,241,53,0.25); border-radius:10px; padding:12px 16px; }
+.file-selected-name { font-size:13px; color:var(--accent); font-weight:500; flex:1; }
+.file-clear { background:none; border:none; color:var(--muted); cursor:pointer; font-size:18px; line-height:1; padding:0 4px; }
+.file-clear:hover { color:var(--text); }
+#file-section { display:block; }
+#url-section  { display:none; }
+
+/* ── Progress ── */
+.progress-card { padding:24px; margin-bottom:20px; display:none; }
+.progress-title { font-size:14px; font-weight:600; color:var(--text); margin-bottom:16px; }
+.progress-steps { display:flex; flex-direction:column; gap:10px; }
+.step { display:flex; align-items:center; gap:12px; }
+.step-dot { width:8px; height:8px; border-radius:50%; background:var(--muted2); flex-shrink:0; transition:background .3s; }
+.step-dot.done { background:var(--accent); }
+.step-dot.active { background:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); animation:pulse 1.2s infinite; }
+.step-text { font-size:13px; color:var(--muted); transition:color .3s; }
+.step-text.active { color:var(--text); }
+.step-text.done { color:var(--muted); }
+.progress-bar-wrap { margin-top:18px; background:var(--bg); border-radius:4px; height:4px; overflow:hidden; }
+.progress-bar-fill { height:100%; background:var(--accent); border-radius:4px; transition:width .5s ease; width:0%; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* ── Stats ── */
+.stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+.stat-card { padding:20px; border-radius:var(--r); }
+.stat-val { font-size:2.2rem; font-weight:700; line-height:1; margin-bottom:6px; }
+.stat-lbl { font-size:11px; font-weight:600; color:var(--muted); letter-spacing:0.5px; display:flex; align-items:center; gap:6px; }
+.stat-dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
+
+/* ── Results ── */
+.results-card { padding:0; overflow:hidden; }
+.results-header { display:flex; align-items:center; justify-content:space-between; padding:18px 24px; border-bottom:1px solid var(--border); }
+.results-title { font-size:15px; font-weight:600; color:var(--text); }
+.results-count { font-size:12px; color:var(--muted); font-weight:500; }
+.results-actions { display:flex; gap:8px; align-items:center; }
+.btn-download {
+  background:var(--accent); color:#0d0e14; border:none; border-radius:8px;
+  font-size:12px; font-weight:700; font-family:inherit; padding:7px 16px;
+  cursor:pointer; transition:opacity .15s; letter-spacing:0.2px;
+}
+.btn-download:hover { opacity:0.88; }
+
+/* Filter pills */
+.filter-bar { display:flex; gap:6px; padding:14px 24px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.filter-pill { padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer; border:1px solid transparent; transition:all .15s; }
+.filter-pill.all { background:rgba(255,255,255,0.08); color:var(--text); border-color:var(--border2); }
+.filter-pill.f1 { background:rgba(197,241,53,0.1); color:var(--accent); border-color:rgba(197,241,53,0.25); }
+.filter-pill.f2 { background:rgba(52,211,153,0.1); color:var(--green); border-color:rgba(52,211,153,0.25); }
+.filter-pill.fw { background:rgba(129,140,248,0.1); color:var(--blue); border-color:rgba(129,140,248,0.25); }
+.filter-pill.fs { background:rgba(251,146,60,0.1); color:var(--orange); border-color:rgba(251,146,60,0.25); }
+.filter-pill.active { opacity:1; } .filter-pill:not(.active) { opacity:0.45; }
+
+/* Article table */
+.article-table { width:100%; border-collapse:collapse; }
+.article-table th { font-size:10px; font-weight:600; color:var(--muted); letter-spacing:1px; text-transform:uppercase; padding:10px 20px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
+.article-table td { padding:14px 20px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.article-table tr:last-child td { border-bottom:none; }
+.article-table tbody tr { transition:background .1s; }
+.article-table tbody tr:hover td { background:rgba(255,255,255,0.02); }
+
+.badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; letter-spacing:0.3px; }
+.badge-1 { background:rgba(197,241,53,0.12); color:var(--accent); }
+.badge-2 { background:rgba(52,211,153,0.12); color:var(--green); }
+.badge-w { background:rgba(129,140,248,0.12); color:var(--blue); }
+.badge-s { background:rgba(251,146,60,0.12); color:var(--orange); }
+
+.article-title { font-size:13px; font-weight:500; color:var(--text); text-decoration:none; display:block; margin-bottom:3px; }
+.article-title:hover { color:var(--accent); }
+.article-snippet { font-size:11px; color:var(--muted); line-height:1.5; }
+.media-tag { display:inline-block; background:rgba(255,255,255,0.05); border:1px solid var(--border2); color:var(--muted); border-radius:6px; font-size:11px; font-weight:500; padding:2px 8px; }
+.date-text { font-size:11px; color:var(--muted2); }
+
+/* Summary card */
+.summary-card { padding:20px 24px; margin-bottom:20px; }
+.summary-header { display:flex; gap:24px; margin-bottom:14px; }
+.summary-field label { font-size:10px; color:var(--muted); font-weight:600; letter-spacing:0.8px; text-transform:uppercase; display:block; margin-bottom:3px; }
+.summary-field span { font-size:13px; font-weight:500; color:var(--text); }
+.summary-text { font-size:13px; color:var(--muted); line-height:1.7; padding:14px 16px; background:var(--bg); border-radius:8px; border-left:3px solid var(--accent); }
+.kw-pills { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+.kw-pill { background:var(--accent-dim); color:var(--accent); border:1px solid rgba(197,241,53,0.2); border-radius:20px; font-size:11px; font-weight:500; padding:3px 10px; }
+
+/* Engine badge */
+.engine-badge { font-size:11px; color:var(--muted); background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:3px 8px; }
+
+/* Empty / error states */
+.empty-state { text-align:center; padding:48px 24px; color:var(--muted); }
+.empty-state .icon { font-size:36px; margin-bottom:12px; opacity:0.4; }
+.empty-state p { font-size:13px; }
+.error-box { background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); border-radius:10px; padding:14px 18px; color:#f87171; font-size:13px; margin-bottom:16px; }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <a class="nav-logo" href="/">
+    <div class="nav-logo-mark">P</div>
+    <span class="nav-logo-text">Press Clipper</span>
+  </a>
+  <div class="nav-pills">
+    <div class="nav-pill active">クリッピング</div>
+    <div class="nav-pill">レポート履歴</div>
+    <div class="nav-pill">設定</div>
+  </div>
+  <div class="nav-right">
+    <div class="nav-icon">⚙</div>
+  </div>
+</nav>
+
+<main>
+  <!-- Page header -->
+  <div class="page-header">
+    <div>
+      <div class="page-eyebrow">Press Intelligence</div>
+      <div class="page-title">クリッピング</div>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div id="error-box" class="error-box" style="display:none;"></div>
+
+  <!-- Input card -->
+  <div class="card input-card" id="input-card">
+    <div class="input-label">プレスリリースを入力</div>
+
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('url')">🔗 PR TIMESのURL</button>
+      <button class="tab-btn" onclick="switchTab('file')">📎 ファイルをアップロード</button>
+    </div>
+
+    <!-- URL section -->
+    <div id="url-section" style="display:block;">
+      <div class="input-row">
+        <input class="input-field" id="url-input" type="text"
+          placeholder="https://prtimes.jp/main/html/rd/p/..."
+          onkeydown="if(event.key==='Enter') startAnalysis()">
+        <button class="btn-primary" id="analyze-btn" onclick="startAnalysis()">解析・検索を開始 →</button>
+      </div>
+    </div>
+
+    <!-- File section -->
+    <div id="file-section" style="display:none;">
+      <div id="dropzone" class="dropzone" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+        <input type="file" id="file-input" accept=".txt,.pdf,.docx" onchange="onFileSelect(event)">
+        <div class="dropzone-icon">📄</div>
+        <div class="dropzone-text"><b>クリックまたはドラッグ</b>でファイルをアップロード</div>
+        <div class="dropzone-sub">対応形式：PDF / Word (.docx) / テキスト (.txt)</div>
+      </div>
+      <div id="file-selected" class="file-selected" style="display:none;">
+        <span>📄</span>
+        <span class="file-selected-name" id="file-name"></span>
+        <button class="file-clear" onclick="clearFile()">✕</button>
+      </div>
+      <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+        <button class="btn-primary" id="analyze-btn-file" onclick="startAnalysis()" disabled>解析・検索を開始 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress card -->
+  <div class="card progress-card" id="progress-card">
+    <div class="progress-title">解析・検索中...</div>
+    <div class="progress-steps">
+      <div class="step"><div class="step-dot" id="dot-0"></div><div class="step-text" id="text-0">プレスリリースを読み込み中</div></div>
+      <div class="step"><div class="step-dot" id="dot-1"></div><div class="step-text" id="text-1">Claudeで内容を解析中</div></div>
+      <div class="step"><div class="step-dot" id="dot-2"></div><div class="step-text" id="text-2">Web検索で掲載記事を収集中</div></div>
+      <div class="step"><div class="step-dot" id="dot-3"></div><div class="step-text" id="text-3">AIで記事を分類・判定中</div></div>
+      <div class="step"><div class="step-dot" id="dot-4"></div><div class="step-text" id="text-4">レポートを生成中</div></div>
+    </div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar"></div></div>
+  </div>
+
+  <!-- Results (hidden until done) -->
+  <div id="results" style="display:none;">
+
+    <!-- Summary card -->
+    <div class="card summary-card" id="summary-card">
+      <div class="summary-header">
+        <div class="summary-field"><label>会社名</label><span id="res-company"></span></div>
+        <div class="summary-field"><label>製品・サービス</label><span id="res-product"></span></div>
+        <div class="summary-field"><label>発表日</label><span id="res-date"></span></div>
+      </div>
+      <div class="summary-text" id="res-summary"></div>
+      <div class="kw-pills" id="res-keywords"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="card stat-card">
+        <div class="stat-val" style="color:var(--accent);" id="stat-primary">0</div>
+        <div class="stat-lbl"><span class="stat-dot" style="background:var(--accent);"></span>1次記事</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-val" style="color:var(--green);" id="stat-secondary">0</div>
+        <div class="stat-lbl"><span class="stat-dot" style="background:var(--green);"></span>2次記事</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-val" style="color:var(--blue);" id="stat-wire">0</div>
+        <div class="stat-lbl"><span class="stat-dot" style="background:var(--blue);"></span>ワイヤー</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-val" style="color:var(--orange);" id="stat-sns">0</div>
+        <div class="stat-lbl"><span class="stat-dot" style="background:var(--orange);"></span>SNS</div>
+      </div>
+    </div>
+
+    <!-- Article list -->
+    <div class="card results-card">
+      <div class="results-header">
+        <div>
+          <div class="results-title">掲載記事一覧</div>
+        </div>
+        <div class="results-actions">
+          <span class="engine-badge" id="engine-badge"></span>
+          <span class="results-count" id="results-count"></span>
+          <button class="btn-download" id="download-btn" onclick="downloadReport()">レポートをダウンロード</button>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <span class="filter-pill all active" onclick="filterArticles('all', this)">すべて</span>
+        <span class="filter-pill f1" onclick="filterArticles('1次記事', this)">1次記事</span>
+        <span class="filter-pill f2" onclick="filterArticles('2次記事', this)">2次記事</span>
+        <span class="filter-pill fw" onclick="filterArticles('ワイヤーサービス', this)">ワイヤー</span>
+        <span class="filter-pill fs" onclick="filterArticles('SNS', this)">SNS</span>
+      </div>
+
+      <div id="article-list">
+        <table class="article-table">
+          <thead>
+            <tr>
+              <th style="width:80px;">種別</th>
+              <th style="width:90px;">掲載日</th>
+              <th>記事タイトル</th>
+              <th style="width:140px;">媒体名</th>
+            </tr>
+          </thead>
+          <tbody id="article-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+let currentTab = 'url';
+let selectedFile = null;
+let allArticles = [];
+let htmlReport = '';
+let reportStem = 'クリッピング';
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('url-section').style.display = tab === 'url' ? 'block' : 'none';
+  document.getElementById('file-section').style.display = tab === 'file' ? 'block' : 'none';
+}
+
+function onDragOver(e) { e.preventDefault(); document.getElementById('dropzone').classList.add('dragover'); }
+function onDragLeave() { document.getElementById('dropzone').classList.remove('dragover'); }
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) setFile(file);
+}
+function onFileSelect(e) { const f = e.target.files[0]; if (f) setFile(f); }
+function setFile(file) {
+  selectedFile = file;
+  document.getElementById('dropzone').style.display = 'none';
+  document.getElementById('file-selected').style.display = 'flex';
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('analyze-btn-file').disabled = false;
+}
+function clearFile() {
+  selectedFile = null;
+  document.getElementById('dropzone').style.display = 'block';
+  document.getElementById('file-selected').style.display = 'none';
+  document.getElementById('file-input').value = '';
+  document.getElementById('analyze-btn-file').disabled = true;
+}
+
+function setProgress(step, pct) {
+  for (let i = 0; i < 5; i++) {
+    const dot = document.getElementById(`dot-${i}`);
+    const txt = document.getElementById(`text-${i}`);
+    dot.className = 'step-dot' + (i < step ? ' done' : i === step ? ' active' : '');
+    txt.className = 'step-text' + (i < step ? ' done' : i === step ? ' active' : '');
+  }
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+async function startAnalysis() {
+  const url = document.getElementById('url-input').value.trim();
+  if (currentTab === 'url' && !url.startsWith('http')) {
+    showError('有効なURLを入力してください');
+    return;
+  }
+  if (currentTab === 'file' && !selectedFile) {
+    showError('ファイルを選択してください');
+    return;
+  }
+
+  hideError();
+  document.getElementById('input-card').style.display = 'none';
+  document.getElementById('progress-card').style.display = 'block';
+  document.getElementById('results').style.display = 'none';
+
+  setProgress(0, 10);
+  await delay(400);
+  setProgress(1, 30);
+
+  const formData = new FormData();
+  if (currentTab === 'file') {
+    formData.append('file', selectedFile);
+    reportStem = selectedFile.name.replace(/\.[^.]+$/, '');
+  } else {
+    formData.append('url', url);
+    reportStem = 'クリッピング';
+  }
+
+  try {
+    setProgress(2, 50);
+    const res = await fetch('/api/analyze', { method: 'POST', body: formData });
+    setProgress(3, 75);
+    await delay(300);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || 'サーバーエラー');
+    }
+
+    const data = await res.json();
+    setProgress(4, 95);
+    await delay(400);
+
+    renderResults(data);
+  } catch (e) {
+    document.getElementById('progress-card').style.display = 'none';
+    document.getElementById('input-card').style.display = 'block';
+    showError('エラー: ' + e.message);
+  }
+}
+
+function renderResults(data) {
+  document.getElementById('progress-card').style.display = 'none';
+  document.getElementById('results').style.display = 'block';
+
+  // Summary
+  document.getElementById('res-company').textContent = data.info.company || '—';
+  document.getElementById('res-product').textContent = data.info.product || '—';
+  document.getElementById('res-date').textContent = data.info.release_date || '—';
+  document.getElementById('res-summary').textContent = data.info.summary || '';
+  const kwEl = document.getElementById('res-keywords');
+  kwEl.innerHTML = (data.info.keywords || []).map(k => `<span class="kw-pill">${k}</span>`).join('');
+
+  // Stats
+  document.getElementById('stat-primary').textContent = data.stats.primary;
+  document.getElementById('stat-secondary').textContent = data.stats.secondary;
+  document.getElementById('stat-wire').textContent = data.stats.wire;
+  document.getElementById('stat-sns').textContent = data.stats.sns;
+
+  // Engine
+  document.getElementById('engine-badge').textContent = `🔍 ${data.search_engine}`;
+  document.getElementById('results-count').textContent = `${data.stats.total} 件`;
+
+  // Articles
+  allArticles = data.articles;
+  htmlReport = data.html_report;
+  renderTable(allArticles);
+
+  // Reset filter
+  document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+  document.querySelector('.filter-pill.all').classList.add('active');
+
+  // Scroll to results
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+const BADGE = {
+  '1次記事':      ['badge badge-1', '1次'],
+  '2次記事':      ['badge badge-2', '2次'],
+  'ワイヤーサービス': ['badge badge-w', 'Wire'],
+  'SNS':          ['badge badge-s', 'SNS'],
+};
+
+function renderTable(articles) {
+  const tbody = document.getElementById('article-tbody');
+  if (!articles.length) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted);">記事が見つかりませんでした</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = articles.map(a => {
+    const [cls, lbl] = BADGE[a.article_class] || ['badge', a.article_class];
+    const date = (a.date || '').slice(0, 10) || '—';
+    const title = escHtml(a.title || '');
+    const snippet = escHtml((a.snippet || '').slice(0, 90));
+    const media = escHtml(a.media || '');
+    return `<tr>
+      <td><span class="${cls}">${lbl}</span></td>
+      <td><span class="date-text">${date}</span></td>
+      <td>
+        <a class="article-title" href="${escHtml(a.url)}" target="_blank" rel="noopener">${title}</a>
+        ${snippet ? `<div class="article-snippet">${snippet}</div>` : ''}
+      </td>
+      <td><span class="media-tag">${media}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterArticles(cls, el) {
+  document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  const filtered = cls === 'all' ? allArticles : allArticles.filter(a => a.article_class === cls);
+  renderTable(filtered);
+}
+
+function downloadReport() {
+  const blob = new Blob([htmlReport], { type: 'text/html;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${reportStem}_クリッピングレポート.html`;
+  a.click();
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-box');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function hideError() { document.getElementById('error-box').style.display = 'none'; }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
